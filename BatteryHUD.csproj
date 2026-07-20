@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BatteryHUD</RootNamespace>
+    <AssemblyName>BatteryHUD</AssemblyName>
+    <Product>BatteryHUD</Product>
+    <Description>Always-on-top battery overlay for controllers, mice, and other peripherals — so you can swap batteries before mid-fight death.</Description>
+    <Version>1.0.0</Version>
+    <ApplicationIcon>Assets/BatteryCharger.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- WMI APIs are Windows-only; calls are OS-gated at runtime -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.5" />
+    <!-- Compiles everywhere; only used at runtime on Windows -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Assets\BatteryCharger.ico" Condition="Exists('Assets\BatteryCharger.ico')" />
+  </ItemGroup>
+</Project>
