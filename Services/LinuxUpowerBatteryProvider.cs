@@ -160,6 +160,16 @@ public sealed partial class LinuxUpowerBatteryProvider : IBatteryDeviceProvider
         if (percentage is null && !hasBattery)
             return null;
 
+        // native-path often contains the BT address on Linux
+        string? address = null;
+        if (!string.IsNullOrWhiteSpace(nativePath))
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(
+                nativePath,
+                @"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}");
+            if (m.Success) address = m.Value.ToUpperInvariant();
+        }
+
         return new BatteryDevice
         {
             Id = path,
@@ -168,7 +178,8 @@ public sealed partial class LinuxUpowerBatteryProvider : IBatteryDeviceProvider
             Percent = percentage is null ? null : (int)Math.Round(percentage.Value),
             IsPresent = isPresent,
             IsCharging = isCharging,
-            VendorHint = vendor
+            VendorHint = vendor,
+            Address = address
         };
     }
 

@@ -1,10 +1,10 @@
 namespace BatteryHUD.Models;
 
 /// <summary>
-/// A peripheral (or system) device that reports a battery level.
+/// A peripheral (or system) device that may report a battery level.
 /// Controllers, mice, keyboards, headsets — anything the OS exposes.
 /// </summary>
-public sealed class BatteryDevice
+public sealed record BatteryDevice
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
@@ -14,6 +14,18 @@ public sealed class BatteryDevice
     public bool IsCharging { get; init; }
     public string? VendorHint { get; init; }
 
+    /// <summary>Bluetooth MAC or other durable address when known.</summary>
+    public string? Address { get; init; }
+
+    /// <summary>
+    /// Cross-poll identity that should survive OS id churn
+    /// (prefer address, else normalized name).
+    /// </summary>
+    public string StableKey =>
+        !string.IsNullOrWhiteSpace(Address)
+            ? $"addr:{Address.Replace(":", "", StringComparison.Ordinal).ToUpperInvariant()}"
+            : $"name:{Name.Trim().ToLowerInvariant()}";
+
     public string DisplayName =>
         string.IsNullOrWhiteSpace(Kind) ? Name : $"{Name} ({Kind})";
 
@@ -22,9 +34,9 @@ public sealed class BatteryDevice
         get
         {
             if (!IsPresent)
-                return "Disconnected";
+                return Percent is int p ? $"Last {p}% · offline" : "Disconnected";
             if (Percent is null)
-                return "Battery unknown";
+                return "Connected · battery unknown";
             var suffix = IsCharging ? " charging" : "";
             return $"{Percent}%{suffix}";
         }

@@ -88,9 +88,9 @@ public partial class OverlayWindow : Window
             PercentText.Text = "--";
             PercentText.Foreground = BatteryColors.ForPercent(null, low, true);
             DeviceText.Text = _monitor.Devices.Count == 0
-                ? $"No battery devices ({_monitor.PlatformName})"
+                ? $"No devices ({_monitor.PlatformName})"
                 : "Click Switch to choose a device";
-            HintText.Text = "Connect a controller, mouse, or BT device with battery";
+            HintText.Text = "Connect a controller, mouse, or BT peripheral";
             return;
         }
 
@@ -99,10 +99,13 @@ public partial class OverlayWindow : Window
 
         var kind = device.Kind is null ? "" : $" · {device.Kind}";
         var charge = device.IsCharging ? " · charging" : "";
-        DeviceText.Text = $"{device.Name}{kind}{charge}";
+        var offline = device.IsPresent ? "" : " · offline";
+        DeviceText.Text = $"{device.Name}{kind}{charge}{offline}";
 
         if (!device.IsPresent)
-            HintText.Text = "Device disconnected — switch or wait for reconnect";
+            HintText.Text = "Link lost — keeping last reading; will refresh on reconnect";
+        else if (device.Percent is null)
+            HintText.Text = "Connected, but OS isn't reporting battery % for this device";
         else if (device.Percent is int pct && pct <= low)
             HintText.Text = "Low battery — good time to swap before a fight";
         else
@@ -136,8 +139,11 @@ public partial class OverlayWindow : Window
         }
         else
         {
-            _monitor.SelectedDeviceId = result;
-            _settings.SelectedDeviceId = result;
+            // Prefer durable stable key when available so Windows id churn doesn't drop selection
+            var picked = _monitor.Devices.FirstOrDefault(d => d.Id == result);
+            var storeId = picked?.StableKey ?? result;
+            _monitor.SelectedDeviceId = storeId;
+            _settings.SelectedDeviceId = storeId;
         }
 
         _settingsService.Save(_settings);

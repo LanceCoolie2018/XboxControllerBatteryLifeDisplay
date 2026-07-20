@@ -8,12 +8,21 @@ public static class BatteryProviderFactory
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             return new WindowsWmiBatteryProvider();
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return new LinuxUpowerBatteryProvider();
+        {
+            return new CompositeBatteryProvider(
+                new LinuxUpowerBatteryProvider(),
+                new LinuxBluezBatteryProvider(),
+                new LinuxSysfsBatteryProvider());
+        }
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return new MacBatteryProvider();
 
-        // Fallback: try Linux-style tools, else empty
-        return new LinuxUpowerBatteryProvider();
+        return new CompositeBatteryProvider(
+            new LinuxUpowerBatteryProvider(),
+            new LinuxBluezBatteryProvider(),
+            new LinuxSysfsBatteryProvider());
     }
 }

@@ -12,12 +12,21 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 
 - **Cross-platform**: Windows, Linux, macOS (best-effort)
 - **Any battery peripheral** the OS exposes (not Xbox-only)
-  - Windows: WMI/PnP device battery properties (Xbox, DualSense, BT mice, etc.)
-  - Linux: [UPower](https://upower.freedesktop.org/) (`upower`)
+  - Windows: light WMI/PnP queries (not a full-system hammer every tick)
+  - Linux: UPower + BlueZ + `/sys/class/power_supply`
   - macOS: `ioreg` battery keys where available
-- **Choose + switch anytime** — device picker, selection remembered
+- **Sticky device list** — brief BT/WMI blips don’t wipe the picker or your selection
+- **Choose + switch anytime** — device picker, selection remembered by stable key
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
 - **Drag to position**; remembers window placement
+
+## Battery % caveats
+
+Only devices that **report charge to the OS** show a number. Many BLE HID keyboards
+(e.g. some ProtoArc models) connect fine but **do not** implement the standard Battery
+Service (`0x180F`) or UPower node — BatteryHUD will still list them as
+**Connected · battery unknown**. Controllers that expose % (Xbox, DualSense, many mice)
+are the sweet spot for mid-game swaps.
 
 ## Requirements
 
