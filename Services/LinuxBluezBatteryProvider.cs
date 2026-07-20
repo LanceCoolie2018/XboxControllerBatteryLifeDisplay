@@ -5,9 +5,8 @@ using BatteryHUD.Models;
 namespace BatteryHUD.Services;
 
 /// <summary>
-/// Linux BlueZ provider: connected Bluetooth devices + Battery1 when present.
-/// Many HID keyboards never expose a %, but still belong in the list so the
-/// user can select them and see connection state.
+/// Linux BlueZ provider: Bluetooth devices that expose Battery1 / a percentage.
+/// Devices without a reported % are omitted (no ghost "connected · unknown" rows).
 /// </summary>
 public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
 {
@@ -25,8 +24,9 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
             devices.AddRange(FromBluetoothctl());
 
         return devices
+            .Where(d => d.Percent is not null)
             .GroupBy(d => d.StableKey)
-            .Select(g => g.OrderByDescending(d => d.Percent.HasValue).First())
+            .Select(g => g.OrderByDescending(d => d.IsPresent).First())
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -75,6 +75,9 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
                     if (percent is not null) break;
                 }
             }
+
+            if (percent is null)
+                continue;
 
             yield return new BatteryDevice
             {
@@ -131,6 +134,8 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
             }
 
             if (!connected && !paired)
+                continue;
+            if (percent is null)
                 continue;
 
             yield return new BatteryDevice

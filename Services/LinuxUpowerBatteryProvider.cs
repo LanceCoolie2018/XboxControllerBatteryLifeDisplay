@@ -130,35 +130,21 @@ public sealed partial class LinuxUpowerBatteryProvider : IBatteryDeviceProvider
             }
         }
 
-        // Only expose devices that actually report a battery percentage
-        // (or battery type with is-present). UPower battery/keyboard/mouse/gaming-input.
-        var kind = NormalizeKind(type, model, nativePath);
-        if (!hasBattery && kind is null)
+        // Strict: only devices with a numeric percentage (no ghost / unknown rows).
+        if (percentage is null || !hasBattery)
             return null;
-        if (!hasBattery && percentage is null)
-        {
-            // Some devices report capacity only when present
-            if (!isPresent)
-                return null;
-            // Still list if type is a known battery-bearing peripheral without % yet
-            if (kind is null)
-                return null;
-        }
 
-        // Filter pure AC line power already done; also skip if no useful identity
+        if (type is not null &&
+            type.Equals("line-power", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var kind = NormalizeKind(type, model, nativePath);
+
         var name = !string.IsNullOrWhiteSpace(model)
             ? model!
             : !string.IsNullOrWhiteSpace(nativePath)
                 ? nativePath!
                 : path.Split('/').Last();
-
-        // Skip devices that are clearly not batteries and have no %
-        if (percentage is null && type is not null &&
-            type.Equals("line-power", StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        if (percentage is null && !hasBattery)
-            return null;
 
         // native-path often contains the BT address on Linux
         string? address = null;

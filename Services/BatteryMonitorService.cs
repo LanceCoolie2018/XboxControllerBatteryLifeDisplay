@@ -4,8 +4,9 @@ namespace BatteryHUD.Services;
 
 /// <summary>
 /// Polls the platform provider and tracks the user-selected device.
-/// Keeps recently-seen devices in the list for a grace period so flaky
-/// Bluetooth/WMI polls don't make the picker flicker or drop the selection.
+/// Only devices with a reported battery % are listed.
+/// Keeps recently-seen (with %) devices through a short grace window so
+/// flaky BT/WMI polls don't blank the HUD mid-game.
 /// </summary>
 public sealed class BatteryMonitorService : IDisposable
 {
@@ -30,6 +31,7 @@ public sealed class BatteryMonitorService : IDisposable
 
     public string PlatformName => _provider.PlatformName;
 
+    /// <summary>Devices that currently have (or recently had) a battery percentage.</summary>
     public IReadOnlyList<BatteryDevice> Devices
     {
         get
@@ -37,6 +39,7 @@ public sealed class BatteryMonitorService : IDisposable
             lock (_gate)
                 return _tracked.Values
                     .Select(t => t.Device)
+                    .Where(d => d.Percent is not null)
                     .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
         }
@@ -48,29 +51,33 @@ public sealed class BatteryMonitorService : IDisposable
         {
             lock (_gate)
             {
-                if (_tracked.Count == 0) return null;
+                var withPercent = _tracked.Values
+                    .Select(t => t.Device)
+                    .Where(d => d.Percent is not null)
+                    .ToList();
+
+                if (withPercent.Count == 0) return null;
 
                 if (!string.IsNullOrEmpty(_selectedId))
                 {
                     // Exact id
-                    if (_tracked.TryGetValue(_selectedId, out var exact))
+                    if (_tracked.TryGetValue(_selectedId, out var exact) &&
+                        exact.Device.Percent is not null)
                         return exact.Device;
 
                     // Fuzzy: same stable key / name (Windows ids can shift)
-                    var fuzzy = _tracked.Values
-                        .Select(t => t.Device)
-                        .FirstOrDefault(d =>
-                            string.Equals(d.StableKey, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(d.Id, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                            (!string.IsNullOrEmpty(d.Address) &&
-                             _selectedId.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
+                    var fuzzy = withPercent.FirstOrDefault(d =>
+                        string.Equals(d.StableKey, _selectedId, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(d.Id, _selectedId, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(d.Address) &&
+                         _selectedId.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
                     if (fuzzy is not null)
                         return fuzzy;
                 }
 
-                return _tracked.Values.Select(t => t.Device).FirstOrDefault(d => d.Kind == "Controller")
-                       ?? _tracked.Values.Select(t => t.Device).FirstOrDefault(d => d.IsPresent)
-                       ?? _tracked.Values.Select(t => t.Device).FirstOrDefault();
+                return withPercent.FirstOrDefault(d => d.Kind == "Controller")
+                       ?? withPercent.FirstOrDefault(d => d.IsPresent)
+                       ?? withPercent.FirstOrDefault();
             }
         }
     }
@@ -100,7 +107,10 @@ public sealed class BatteryMonitorService : IDisposable
         List<BatteryDevice> snapshot;
         try
         {
-            snapshot = _provider.GetDevices().ToList();
+            // Hard filter: never track devices without a %
+            snapshot = _provider.GetDevices()
+                .Where(d => d.Percent is not null)
+                .ToList();
         }
         catch
         {
@@ -113,6 +123,13 @@ public sealed class BatteryMonitorService : IDisposable
 
         lock (_gate)
         {
+            // Drop any historical ghosts that somehow lack a percent
+            foreach (var kv in _tracked.ToList())
+            {
+                if (kv.Value.Device.Percent is null)
+                    _tracked.Remove(kv.Key);
+            }
+
             if (providerFailedEmpty && _tracked.Count > 0)
             {
                 // Don't wipe the list on a blank poll (common BT/WMI blip)
@@ -136,8 +153,14 @@ public sealed class BatteryMonitorService : IDisposable
 
                     if (_tracked.TryGetValue(key, out var existing))
                     {
-                        // Prefer fresh percent; if missing, keep last known
+                        // Prefer fresh percent; if missing, keep last known (still required)
                         var percent = device.Percent ?? existing.Device.Percent;
+                        if (percent is null)
+                        {
+                            _tracked.Remove(key);
+                            continue;
+                        }
+
                         existing.Device = device with
                         {
                             Percent = percent,
@@ -157,6 +180,9 @@ public sealed class BatteryMonitorService : IDisposable
                         {
                             _tracked.Remove(byStable.Device.Id);
                             var percent = device.Percent ?? byStable.Device.Percent;
+                            if (percent is null)
+                                continue;
+
                             _tracked[key] = new TrackedDevice
                             {
                                 Device = device with { Percent = percent },
@@ -174,13 +200,13 @@ public sealed class BatteryMonitorService : IDisposable
                     }
                 }
 
-                // Devices not in this snapshot: keep during grace
+                // Devices not in this snapshot: keep during grace only if they still have a %
                 foreach (var kv in _tracked.ToList())
                 {
                     if (seenIds.Contains(kv.Key))
                         continue;
 
-                    if (now - kv.Value.LastSeen > _grace)
+                    if (kv.Value.Device.Percent is null || now - kv.Value.LastSeen > _grace)
                     {
                         _tracked.Remove(kv.Key);
                     }
@@ -199,7 +225,7 @@ public sealed class BatteryMonitorService : IDisposable
     {
         foreach (var kv in _tracked.ToList())
         {
-            if (now - kv.Value.LastSeen > _grace)
+            if (kv.Value.Device.Percent is null || now - kv.Value.LastSeen > _grace)
                 _tracked.Remove(kv.Key);
         }
     }

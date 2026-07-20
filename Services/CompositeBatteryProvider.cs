@@ -34,31 +34,32 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
         }
 
         return all
+            .Where(d => d.Percent is not null)
             .GroupBy(d => d.StableKey, StringComparer.OrdinalIgnoreCase)
             .Select(MergeGroup)
+            .Where(d => d.Percent is not null)
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
     private static BatteryDevice MergeGroup(IGrouping<string, BatteryDevice> group)
     {
-        // Prefer: has percent > is present > first
+        // Prefer: present + freshest percent
         var best = group
-            .OrderByDescending(d => d.Percent.HasValue)
-            .ThenByDescending(d => d.IsPresent)
+            .OrderByDescending(d => d.IsPresent)
             .ThenByDescending(d => d.IsCharging)
+            .ThenByDescending(d => d.Percent ?? -1)
             .First();
 
-        // Fill gaps from siblings
         var anyPresent = group.Any(d => d.IsPresent);
-        var percent = group.Select(d => d.Percent).FirstOrDefault(p => p.HasValue);
+        var percent = group.Select(d => d.Percent).FirstOrDefault(p => p.HasValue) ?? best.Percent;
         var charging = group.Any(d => d.IsCharging);
         var address = group.Select(d => d.Address).FirstOrDefault(a => !string.IsNullOrEmpty(a));
         var kind = group.Select(d => d.Kind).FirstOrDefault(k => !string.IsNullOrEmpty(k));
 
         return best with
         {
-            Percent = percent ?? best.Percent,
+            Percent = percent,
             IsPresent = anyPresent,
             IsCharging = charging,
             Address = address ?? best.Address,

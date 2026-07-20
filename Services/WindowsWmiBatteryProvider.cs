@@ -98,19 +98,13 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                     if (shouldProbe)
                         percent = TryReadBatteryPercent(obj);
 
-                    if (percent is not null)
-                    {
-                        lock (_gate)
-                            _knownBatteryIds.Add(deviceId!);
-                    }
-
-                    // Include: has battery OR looks like a BT/HID peripheral (list stability)
-                    if (percent is null && !LooksLikePeripheral(name) && pnpClass is not ("Bluetooth" or "Mouse" or "Keyboard" or "HIDClass"))
+                    // Only list devices that actually report a charge percentage.
+                    // No percent → ghost / noise (paired HID shells, radios, dongles).
+                    if (percent is null)
                         continue;
 
-                    // Skip pure "Bluetooth" radio adapters without battery / generic hubs
-                    if (percent is null && IsNoiseDevice(name!))
-                        continue;
+                    lock (_gate)
+                        _knownBatteryIds.Add(deviceId!);
 
                     var address = TryExtractBtAddress(deviceId!);
 
@@ -210,19 +204,6 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                n.Contains("mouse") || n.Contains("keyboard") || n.Contains("headset") ||
                n.Contains("headphone") || n.Contains("earbuds") || n.Contains("protoarc") ||
                n.Contains("logitech") || n.Contains("razer") || n.Contains("wireless");
-    }
-
-    private static bool IsNoiseDevice(string name)
-    {
-        var n = name.ToLowerInvariant();
-        return n is "microsoft bluetooth enumerator" or "bluetooth device (rfcomm protocol tdi)" ||
-               n.Contains("bluetooth adapter") ||
-               n.Contains("generic bluetooth") ||
-               n.Contains("bluetooth lea") ||
-               n.Contains("microsoft bluetooth") && n.Contains("enumerator") ||
-               n.Contains("root enumerator") ||
-               n.EndsWith("avrcp transport") ||
-               n.Contains("service discovery");
     }
 
     private static string? TryExtractBtAddress(string deviceId)

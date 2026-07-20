@@ -30,15 +30,9 @@ public sealed class LinuxSysfsBatteryProvider : IBatteryDeviceProvider
                 if (int.TryParse(capacity?.Trim(), out var p) && p is >= 0 and <= 100)
                     percent = p;
 
-                // Skip pure system battery-less nodes with no capacity
-                if (percent is null && !string.Equals(type, "Battery", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(type, "UPS", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Still include hid devices named like hid-... if present
-                    if (!name.Contains("hid", StringComparison.OrdinalIgnoreCase) &&
-                        !name.Contains("ps-controller", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                }
+                // Only nodes with a real capacity % belong in the picker
+                if (percent is null)
+                    continue;
 
                 var model = Read(dir, "model_name")?.Trim()
                             ?? Read(dir, "manufacturer")?.Trim()

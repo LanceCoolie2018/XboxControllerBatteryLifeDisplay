@@ -138,8 +138,6 @@ public partial class OverlayWindow : Window
 
         if (!device.IsPresent)
             HintText.Text = "Link lost — keeping last reading; will refresh on reconnect";
-        else if (device.Percent is null)
-            HintText.Text = "Connected, but OS isn't reporting battery % for this device";
         else if (device.Percent is int pct && pct <= low)
             HintText.Text = "Low battery — good time to swap before a fight";
         else
