@@ -41,10 +41,24 @@ are the sweet spot for mid-game swaps.
 
 ## Run from source
 
+**Windows (easiest):** double-click `run-windows.bat`, or in PowerShell / cmd:
+
+```bat
+cd /d D:\BatteryHud
+dotnet restore BatteryHUD.csproj
+dotnet run --project BatteryHUD.csproj
+```
+
+**Linux / macOS / any terminal with `dotnet` on PATH:**
+
 ```bash
 dotnet restore BatteryHUD.csproj
 dotnet run --project BatteryHUD.csproj
 ```
+
+### Laptop / multi-monitor note
+
+The overlay remembers its last position. If you undock or change displays and the window seems missing, it was often **off-screen** — BatteryHUD now snaps back to the primary bottom-right when the saved position is no longer visible. You can also delete `%AppData%\BatteryHUD\settings.json` to reset.
 
 ## Publish (single folder)
 

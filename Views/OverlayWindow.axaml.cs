@@ -60,22 +60,56 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        if (_settings.WindowX is double x && _settings.WindowY is double y)
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
+        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 88 : Height);
+
+        // Restore saved position only if it still lands on a connected screen.
+        // Multi-monitor setups (laptop docked vs undocked) often leave coords
+        // completely off-screen so the app looks like it "won't start".
+        if (_settings.WindowX is double sx && _settings.WindowY is double sy)
         {
-            Position = new PixelPoint((int)x, (int)y);
-            return;
+            var candidate = new PixelPoint((int)sx, (int)sy);
+            if (IsMostlyOnAnyScreen(candidate, w, h))
+            {
+                Position = candidate;
+                return;
+            }
         }
 
+        PlaceDefaultBottomRight(w, h);
+    }
+
+    private void PlaceDefaultBottomRight(int w, int h)
+    {
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         if (screen is null) return;
 
         var wa = screen.WorkingArea;
         var pad = _settings.EdgePadding;
-        var w = double.IsNaN(Width) || Width <= 0 ? 280 : Width;
-        var h = double.IsNaN(Height) || Height <= 0 ? 88 : Height;
         Position = new PixelPoint(
-            wa.X + wa.Width - (int)w - pad,
-            wa.Y + wa.Height - (int)h - pad);
+            wa.X + wa.Width - w - pad,
+            wa.Y + wa.Height - h - pad);
+    }
+
+    /// <summary>
+    /// True when at least a decent chunk of the window overlaps some screen working area.
+    /// </summary>
+    private bool IsMostlyOnAnyScreen(PixelPoint topLeft, int w, int h)
+    {
+        // Require a useful overlap so a 1px clip on the edge of a disconnected display fails.
+        const int minOverlap = 40;
+        var win = new PixelRect(topLeft.X, topLeft.Y, Math.Max(w, minOverlap), Math.Max(h, minOverlap));
+
+        foreach (var screen in Screens.All)
+        {
+            var area = screen.WorkingArea;
+            var ox = Math.Max(0, Math.Min(win.X + win.Width, area.X + area.Width) - Math.Max(win.X, area.X));
+            var oy = Math.Max(0, Math.Min(win.Y + win.Height, area.Y + area.Height) - Math.Max(win.Y, area.Y));
+            if (ox >= minOverlap && oy >= minOverlap)
+                return true;
+        }
+
+        return false;
     }
 
     private void Render()
