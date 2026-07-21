@@ -73,6 +73,88 @@ def open_items(text: str) -> tuple[list[UserReportItem], str]:
     return [i for i in items if not i.checked], notes
 
 
+def mark_item_checked(
+    path: Path,
+    *,
+    item_id: str | None = None,
+    title: str | None = None,
+    fingerprint: str | None = None,
+) -> tuple[bool, str]:
+    """
+    Flip the first matching open checklist line to - [x].
+
+    Match order: stable [id], then fingerprint (title hash), then exact title.
+    Returns (changed, message).
+    """
+    if not path.is_file():
+        return False, f"UserReport not found: {path}"
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines(keepends=True)
+    if not lines and text:
+        lines = [text]
+
+    changed = False
+    new_lines: list[str] = []
+    for line in lines:
+        # Preserve original line ending
+        raw = line.rstrip("\r\n")
+        ending = line[len(raw) :]
+        m = ITEM_RE.match(raw)
+        if not m or changed:
+            new_lines.append(line)
+            continue
+        checked = m.group("check").lower() == "x"
+        if checked:
+            new_lines.append(line)
+            continue
+
+        mid = (m.group("id") or None)
+        mtitle = m.group("title").strip()
+        item = UserReportItem(
+            checked=False,
+            item_id=mid,
+            title=mtitle,
+            line_no=0,
+            raw=raw,
+        )
+
+        match = False
+        if item_id and mid and mid == item_id:
+            match = True
+        elif fingerprint and item.fingerprint == fingerprint:
+            match = True
+        elif title and mtitle == title.strip():
+            match = True
+        elif title and mtitle.lower() == title.strip().lower():
+            match = True
+
+        if not match:
+            new_lines.append(line)
+            continue
+
+        # Replace first [ ] or [ ] with [x] after the list marker
+        marked = re.sub(
+            r"^(\s*[-*]\s*)\[[ ]\]",
+            r"\1[x]",
+            raw,
+            count=1,
+        )
+        if marked == raw:
+            # already x or odd spacing
+            new_lines.append(line)
+            continue
+        new_lines.append(marked + ending)
+        changed = True
+        log.info("checked UserReport item: %s", marked.strip())
+
+    if not changed:
+        return False, "no matching open UserReport item to check"
+
+    path.write_text("".join(new_lines), encoding="utf-8")
+    return True, f"checked item in {path.name}"
+
+
 def scan_user_report(
     cfg: Config,
     state: State,

@@ -51,7 +51,9 @@ class UserReportConfig:
     path: str = "UserReport.md"
     debounce_seconds: float = 2.0
     pull_before_scan: bool = False
-    auto_check_on_pr: bool = False
+    # When a UserReport job finishes successfully, mark - [ ] → - [x] on
+    # AssIsstant so the next scan does not re-queue before you review.
+    auto_check_on_pr: bool = True
     # How often the daemon fetches/pulls the current branch and re-scans
     # UserReport for laptop pushes. 0 disables (local mtime watch only).
     remote_poll_seconds: float = 30.0
@@ -206,7 +208,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             path=str(user_report.get("path") or "UserReport.md"),
             debounce_seconds=float(user_report.get("debounce_seconds", 2)),
             pull_before_scan=bool(user_report.get("pull_before_scan", False)),
-            auto_check_on_pr=bool(user_report.get("auto_check_on_pr", False)),
+            auto_check_on_pr=bool(user_report.get("auto_check_on_pr", True)),
             remote_poll_seconds=float(user_report.get("remote_poll_seconds", 30)),
         ),
         dispatch=DispatchConfig(

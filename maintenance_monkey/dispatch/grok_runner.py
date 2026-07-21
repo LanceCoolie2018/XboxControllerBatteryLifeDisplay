@@ -79,6 +79,15 @@ class GrokRunner:
                 f"fix: {incident.title[:72]}\n\nMaintenance Monkey job {job.id}",
             )
 
+            # Mark UserReport item [x] so remote poll does not re-queue it
+            check_msg = self._auto_check_user_report(incident, worktree)
+            if check_msg:
+                log.info("%s", check_msg)
+                git_workflow.commit_if_needed(
+                    worktree,
+                    f"chore: mark UserReport done for job {job.id}\n\n{incident.title[:72]}",
+                )
+
             if self.cfg.dispatch.push:
                 self.state.update_job(job.id, status="pushing")
                 git_workflow.push_branch(self.cfg, worktree, branch)
@@ -108,7 +117,12 @@ class GrokRunner:
             except Exception:
                 log.warning("worktree cleanup failed for %s", worktree)
 
+            # Keep primary checkout UserReport in sync if it is on AssIsstant
+            self._sync_user_report_on_primary(incident)
+
             msg = f"job {job.id}: done → {branch}"
+            if check_msg:
+                msg += f" ({check_msg})"
             if pr_url:
                 msg += f" PR {pr_url}"
             return msg
@@ -117,6 +131,52 @@ class GrokRunner:
             log.exception("job %s failed", job.id)
             self.state.update_job(job.id, status="failed", error=str(e))
             return f"job {job.id}: failed: {e}"
+
+    def _auto_check_user_report(self, incident: Incident, worktree: Path) -> str:
+        """Mark the checklist item done in worktree UserReport.md if enabled."""
+        if not self.cfg.user_report.auto_check_on_pr:
+            return ""
+        if incident.source != "user_report":
+            return ""
+        from maintenance_monkey.sensors.user_report import mark_item_checked
+
+        path = worktree / self.cfg.user_report.path
+        meta = incident.meta or {}
+        item_id = meta.get("item_id") if isinstance(meta, dict) else None
+        title = incident.title
+        if title.startswith("UserReport: "):
+            title = title[len("UserReport: ") :]
+        ok, msg = mark_item_checked(
+            path,
+            item_id=item_id,
+            title=title,
+            fingerprint=incident.fingerprint,
+        )
+        return msg if ok else ""
+
+    def _sync_user_report_on_primary(self, incident: Incident) -> None:
+        """Also check the box on the daemon's checkout (after pull it matches)."""
+        if not self.cfg.user_report.auto_check_on_pr:
+            return
+        if incident.source != "user_report":
+            return
+        from maintenance_monkey.sensors.user_report import mark_item_checked
+
+        path = self.cfg.project.root / self.cfg.user_report.path
+        meta = incident.meta or {}
+        item_id = meta.get("item_id") if isinstance(meta, dict) else None
+        title = incident.title
+        if title.startswith("UserReport: "):
+            title = title[len("UserReport: ") :]
+        try:
+            mark_item_checked(
+                path,
+                item_id=item_id,
+                title=title,
+                fingerprint=incident.fingerprint,
+            )
+        except OSError as e:
+            log.warning("primary UserReport sync failed: %s", e)
 
     def _invoke_grok(self, worktree: Path, prompt_path: Path) -> tuple[str | None, str]:
         grok = self.cfg.dispatch.grok_bin

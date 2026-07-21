@@ -25,7 +25,7 @@ path = "UserReport.md"
 debounce_seconds = 2
 # On the Pi: pull latest AssIsstant branch before scanning (laptop edits via push)
 pull_before_scan = true
-auto_check_on_pr = false
+auto_check_on_pr = true
 # How often daemon pulls origin (seconds) so laptop pushes are seen without local edits
 remote_poll_seconds = 30
 
