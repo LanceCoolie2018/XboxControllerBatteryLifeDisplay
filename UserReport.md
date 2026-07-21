@@ -12,7 +12,8 @@
 ## Open
 
 - [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
-- [x] [UR-disconnect] Disconnection does not register right away and falsely reconnects to the controller even when it is still off
+- [] [UR-disconnect] Disconnection does not register right away and falsely reconnects to the controller even when it is still off
+- [] [UR-Closing] needs an exit button to close the app
 
 ## Notes
 
