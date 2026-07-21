@@ -14,7 +14,8 @@
 - [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
 - [x] [UR-disconnect] Disconnection does not register right away and falsely reconnects to the controller even when it is still off
 - [x] [UR-Closing] needs an exit button to close the app
-- [ ] [UR-spacing] app is now too wide can we shrink it a little
+- [x] [UR-spacing] app is now too wide can we shrink it a little
+
 ## Notes
 
 - App logs go to `logs/batteryhud.log` (created at runtime by `FileLog`).
