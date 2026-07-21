@@ -64,36 +64,55 @@ public sealed class BatteryMonitorService : IDisposable
         {
             lock (_gate)
             {
-                var withPercent = _tracked.Values
-                    .Select(t => t.Device)
-                    .Where(d => d.Percent is not null)
-                    .ToList();
+                var match = FindDeviceLocked(_selectedId);
+                if (match is not null)
+                    return match;
 
+                var withPercent = DevicesWithPercentLocked();
                 if (withPercent.Count == 0) return null;
 
-                if (!string.IsNullOrEmpty(_selectedId))
-                {
-                    // Exact id
-                    if (_tracked.TryGetValue(_selectedId, out var exact) &&
-                        exact.Device.Percent is not null)
-                        return exact.Device;
-
-                    // Fuzzy: same stable key / name (Windows ids can shift)
-                    var fuzzy = withPercent.FirstOrDefault(d =>
-                        string.Equals(d.StableKey, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(d.Id, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                        (!string.IsNullOrEmpty(d.Address) &&
-                         _selectedId.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
-                    if (fuzzy is not null)
-                        return fuzzy;
-                }
-
+                // Auto-pick only when nothing is stored (first run / single-widget legacy)
                 return withPercent.FirstOrDefault(d => d.Kind == "Controller")
                        ?? withPercent.FirstOrDefault(d => d.IsPresent)
                        ?? withPercent.FirstOrDefault();
             }
         }
     }
+
+    /// <summary>
+    /// Resolve a stored id/stable key to a tracked device with a battery %.
+    /// Does not auto-pick — used by multi-widget overlays that each hold their own selection.
+    /// </summary>
+    public BatteryDevice? FindDevice(string? id)
+    {
+        lock (_gate)
+            return FindDeviceLocked(id);
+    }
+
+    private BatteryDevice? FindDeviceLocked(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+            return null;
+
+        var withPercent = DevicesWithPercentLocked();
+        if (withPercent.Count == 0) return null;
+
+        if (_tracked.TryGetValue(id, out var exact) && exact.Device.Percent is not null)
+            return exact.Device;
+
+        // Fuzzy: same stable key / name (Windows ids can shift)
+        return withPercent.FirstOrDefault(d =>
+            string.Equals(d.StableKey, id, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(d.Address) &&
+             id.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private List<BatteryDevice> DevicesWithPercentLocked() =>
+        _tracked.Values
+            .Select(t => t.Device)
+            .Where(d => d.Percent is not null)
+            .ToList();
 
     public string? SelectedDeviceId
     {

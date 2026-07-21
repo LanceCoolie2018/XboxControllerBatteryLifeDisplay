@@ -18,8 +18,9 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **% only** — picker lists only devices the OS reports a battery percentage for (no ghosts)
 - **Sticky readings** — brief BT/WMI blips keep the last % through a short grace window
 - **Choose + switch anytime** — device picker, selection remembered by stable key
+- **Duplicate widgets** — **Dup** opens another overlay so you can watch two devices at once
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
-- **Drag to position**; remembers window placement
+- **Drag to position**; remembers window placement (per widget)
 - **Bug button** — appends an open checklist item to `UserReport.md` (no hand-editing)
 
 ## Battery % caveats
@@ -77,7 +78,10 @@ dotnet publish BatteryHUD.csproj -c Release -r win-x64 --self-contained true -o 
 2. Click **Switch**.
 3. Select your controller (or mouse/headset).
 4. Drag the HUD where it will not block your game UI.
-5. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
+5. Optional: click **Dup** for a second widget, then **Switch** on the copy to watch another device.
+6. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
+
+**Exit** closes that widget only; closing the last widget quits the app. All open widgets (device + position) are saved in settings.
 
 Settings are stored in your user app data folder under `BatteryHUD/settings.json`.
 
