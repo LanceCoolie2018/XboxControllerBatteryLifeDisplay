@@ -14,10 +14,11 @@ public sealed class BatteryMonitorService : IDisposable
 {
     /// <summary>
     /// How many consecutive polls must report the device present before we
-    /// flip offline → online. One poll is enough to go offline.
-    /// At the default 3s interval this is ~6s of stable presence.
+    /// flip offline → online (or accept a first sighting as online).
+    /// One poll is enough to go offline.
+    /// At the default 3s interval this is ~9s of stable presence.
     /// </summary>
-    private const int ReconnectConfirmPolls = 2;
+    private const int ReconnectConfirmPolls = 3;
 
     private readonly IBatteryDeviceProvider _provider;
     private readonly object _gate = new();
@@ -189,13 +190,20 @@ public sealed class BatteryMonitorService : IDisposable
                         }
                         else
                         {
-                            // First sighting: trust provider presence (no prior offline flap)
-                            _tracked[key] = new TrackedDevice
+                            // First sighting: still require confirm polls before "online".
+                            // After grace prune, a single BT/WMI ghost would otherwise
+                            // reappear as instantly connected while the pad is still off.
+                            var tracked = new TrackedDevice
                             {
-                                Device = device,
+                                Device = device with { IsPresent = false },
                                 LastSeen = now,
-                                PresentStreak = device.IsPresent ? 1 : 0
+                                PresentStreak = 0
                             };
+                            if (device.IsPresent)
+                                ApplyObservation(tracked, device, now);
+                            else
+                                tracked.Device = device;
+                            _tracked[key] = tracked;
                         }
                     }
                 }
