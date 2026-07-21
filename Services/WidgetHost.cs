@@ -6,8 +6,9 @@ using BatteryHUD.Views;
 namespace BatteryHUD.Services;
 
 /// <summary>
-/// Owns one or more overlay widgets that share a single battery poller.
-/// Each widget can watch a different device at the same time.
+/// Owns one or more overlay widgets that share a single battery poller,
+/// plus an optional secondary hologram clock overlay.
+/// Each battery widget can watch a different device at the same time.
 /// </summary>
 public sealed class WidgetHost
 {
@@ -16,6 +17,7 @@ public sealed class WidgetHost
     private readonly SettingsService _settingsService;
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
     private readonly List<OverlayWindow> _windows = new();
+    private HologramClockWindow? _clock;
 
     public WidgetHost(
         BatteryMonitorService monitor,
@@ -45,9 +47,13 @@ public sealed class WidgetHost
         if (_windows.Count == 0)
             Spawn(new WidgetSlot(), autoSelectWhenEmpty: true, show: false);
 
+        if (_settings.ShowHologramClock)
+            EnsureClock(show: false);
+
         _desktop.MainWindow = _windows[0];
         foreach (var w in _windows)
             w.Show();
+        _clock?.Show();
 
         _monitor.Start();
     }
@@ -66,11 +72,71 @@ public sealed class WidgetHost
         PersistAll();
     }
 
+    /// <summary>Open (or focus) the secondary hologram clock overlay.</summary>
+    public void ShowHologramClock()
+    {
+        EnsureClock(show: true);
+        _settings.ShowHologramClock = true;
+        PersistAll();
+    }
+
     public void PersistAll()
     {
         var slots = _windows.Select(w => w.ToSlot()).ToList();
         _settings.ApplyWidgets(slots);
+
+        if (_clock is not null)
+        {
+            _settings.ShowHologramClock = true;
+            _settings.ClockWindowX = _clock.WindowX;
+            _settings.ClockWindowY = _clock.WindowY;
+        }
+        // When clock is closed, ShowHologramClock is cleared in OnClockClosed.
+
         _settingsService.Save(_settings);
+    }
+
+    private void EnsureClock(bool show)
+    {
+        if (_clock is not null)
+        {
+            if (show)
+            {
+                _clock.Activate();
+                _clock.Topmost = true;
+            }
+            return;
+        }
+
+        _clock = new HologramClockWindow(
+            _settings.ClockWindowX,
+            _settings.ClockWindowY,
+            _settings.EdgePadding,
+            onPersist: PersistAll,
+            onClosedByUser: OnClockClosed);
+
+        if (_desktop.MainWindow is null)
+            _desktop.MainWindow = _clock;
+
+        if (show)
+            _clock.Show();
+    }
+
+    private void OnClockClosed()
+    {
+        if (_clock is null)
+            return;
+
+        // Capture position one last time before dropping the reference.
+        _settings.ClockWindowX = _clock.WindowX;
+        _settings.ClockWindowY = _clock.WindowY;
+        _settings.ShowHologramClock = false;
+        _clock = null;
+        _settingsService.Save(_settings);
+
+        // Keep MainWindow pointing at a live window if the clock was it.
+        if (_desktop.MainWindow is HologramClockWindow && _windows.Count > 0)
+            _desktop.MainWindow = _windows[0];
     }
 
     private void Spawn(WidgetSlot slot, bool autoSelectWhenEmpty, bool show)
@@ -81,7 +147,8 @@ public sealed class WidgetHost
             slot,
             autoSelectWhenEmpty,
             onDuplicate: Duplicate,
-            onPersist: PersistAll);
+            onPersist: PersistAll,
+            onShowClock: ShowHologramClock);
 
         win.Closed += OnWindowClosed;
         _windows.Add(win);
@@ -103,7 +170,15 @@ public sealed class WidgetHost
 
         if (_windows.Count == 0)
         {
-            // Last window — still persist empty/single-clear so relaunch is clean.
+            // Last battery widget — close clock too so OnLastWindowClose can exit cleanly.
+            if (_clock is not null)
+            {
+                var c = _clock;
+                _clock = null;
+                _settings.ShowHologramClock = false;
+                try { c.Close(); } catch { /* shutting down */ }
+            }
+
             PersistAll();
             return;
         }

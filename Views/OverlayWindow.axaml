@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="BatteryHUD.Views.OverlayWindow"
         Title="BatteryHUD"
-        Width="268" Height="58"
-        MinWidth="220" MinHeight="50"
+        Width="292" Height="58"
+        MinWidth="240" MinHeight="50"
         CanResize="False"
         SystemDecorations="None"
         Topmost="True"
@@ -24,12 +24,12 @@
           PointerPressed="OnPointerPressed"
           PointerMoved="OnPointerMoved"
           PointerReleased="OnPointerReleased"
-          ToolTip.Tip="Drag to move · Switch · Dup · Bug · Exit">
+          ToolTip.Tip="Drag to move · Switch · Dup · Time · Bug · Exit">
     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
       <TextBlock x:Name="PercentText"
                  Grid.Row="0" Grid.Column="0"
                  Text="--%"
-                 FontSize="22"
+                 FontSize="20"
                  FontWeight="Bold"
                  Foreground="#42A5F5"
                  VerticalAlignment="Center" />
@@ -51,6 +51,12 @@
                 FontSize="11"
                 Click="OnDupClick"
                 ToolTip.Tip="Open another widget to monitor a second device at the same time" />
+        <Button x:Name="TimeButton"
+                Content="Time"
+                Padding="6,2"
+                FontSize="11"
+                Click="OnTimeClick"
+                ToolTip.Tip="Open a draggable 3D hologram clock (any screen)" />
         <Button x:Name="BugButton"
                 Content="Bug"
                 Padding="6,2"

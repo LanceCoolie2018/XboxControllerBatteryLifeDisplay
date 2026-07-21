@@ -19,8 +19,9 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **Sticky readings** — brief BT/WMI blips keep the last % through a short grace window
 - **Choose + switch anytime** — device picker, selection remembered by stable key
 - **Duplicate widgets** — **Dup** opens another overlay so you can watch two devices at once
+- **Hologram clock** — **Time** opens a secondary cyan “3D hologram” clock you can drag to any screen
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
-- **Drag to position**; remembers window placement (per widget)
+- **Drag to position**; remembers window placement (per widget / clock)
 - **Bug button** — appends an open checklist item to `UserReport.md` (no hand-editing)
 
 ## Battery % caveats
@@ -79,9 +80,10 @@ dotnet publish BatteryHUD.csproj -c Release -r win-x64 --self-contained true -o 
 3. Select your controller (or mouse/headset).
 4. Drag the HUD where it will not block your game UI.
 5. Optional: click **Dup** for a second widget, then **Switch** on the copy to watch another device.
-6. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
+6. Optional: click **Time** for a draggable hologram-style clock (position remembered across launches).
+7. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
 
-**Exit** closes that widget only; closing the last widget quits the app. All open widgets (device + position) are saved in settings.
+**Exit** closes that battery widget only; closing the last battery widget quits the app (and the clock). All open widgets (device + position) and the clock are saved in settings.
 
 Settings are stored in your user app data folder under `BatteryHUD/settings.json`.
 

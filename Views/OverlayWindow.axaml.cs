@@ -15,6 +15,7 @@ public partial class OverlayWindow : Window
     private readonly AppSettings _settings;
     private readonly Action<OverlayWindow>? _onDuplicate;
     private readonly Action? _onPersist;
+    private readonly Action? _onShowClock;
     private string? _selectedDeviceId;
     private bool _autoSelectWhenEmpty;
     private bool _dragging;
@@ -39,7 +40,8 @@ public partial class OverlayWindow : Window
         WidgetSlot slot,
         bool autoSelectWhenEmpty,
         Action<OverlayWindow>? onDuplicate = null,
-        Action? onPersist = null)
+        Action? onPersist = null,
+        Action? onShowClock = null)
     {
         _monitor = monitor;
         _settings = settings;
@@ -47,6 +49,7 @@ public partial class OverlayWindow : Window
         _autoSelectWhenEmpty = autoSelectWhenEmpty;
         _onDuplicate = onDuplicate;
         _onPersist = onPersist;
+        _onShowClock = onShowClock;
         _initialX = slot.WindowX;
         _initialY = slot.WindowY;
 
@@ -93,7 +96,7 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 268 : Width);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 292 : Width);
         var h = (int)(double.IsNaN(Height) || Height <= 0 ? 58 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
@@ -216,6 +219,12 @@ public partial class OverlayWindow : Window
         _onDuplicate?.Invoke(this);
     }
 
+    private void OnTimeClick(object? sender, RoutedEventArgs e)
+    {
+        // Secondary hologram clock — independent of battery device selection.
+        _onShowClock?.Invoke();
+    }
+
     private void OnExitClick(object? sender, RoutedEventArgs e)
     {
         // Overlay has no system chrome; Exit closes this widget only.
@@ -240,6 +249,7 @@ public partial class OverlayWindow : Window
         if (e.Source is Visual v &&
             (IsOverButton(v, SwitchButton) ||
              IsOverButton(v, DupButton) ||
+             IsOverButton(v, TimeButton) ||
              IsOverButton(v, BugButton) ||
              IsOverButton(v, ExitButton)))
             return;

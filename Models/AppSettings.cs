@@ -32,6 +32,13 @@ public sealed class AppSettings
     /// </summary>
     public List<WidgetSlot> Widgets { get; set; } = new();
 
+    /// <summary>Whether the secondary hologram clock overlay is open.</summary>
+    public bool ShowHologramClock { get; set; }
+
+    /// <summary>Saved hologram clock position (null = default top-right).</summary>
+    public double? ClockWindowX { get; set; }
+    public double? ClockWindowY { get; set; }
+
     /// <summary>
     /// Widgets to open on startup: multi-slot list, or a single slot from legacy fields.
     /// </summary>
