@@ -23,6 +23,7 @@
 - [x] make the percent display blue for better reading.
 - [x] needs added button for bug report that will add a line to the open issues in the UserReport.md so that the user doesnt need to open code to notify of an issue.
 - [x] need an ability to duplicate itself to monitor another device and have 2 widgets at the same time — fixed: Dup button opens another overlay; each widget has its own device + position; Exit closes one widget (last quits)
+- [ ] i want to add a secondary widget to this, the widget should display time in a way that looks like a 3D hologram that i can move anywhere on the screen/screens too.
 
 
 ## Notes
