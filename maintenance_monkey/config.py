@@ -62,7 +62,8 @@ class DispatchConfig:
     max_concurrent_jobs: int = 1
     cooldown_seconds: int = 300
     worktree_parent: str = ".."
-    branch_prefix: str = "AssIsstant/fix-"
+    # Use hyphen, not slash: git cannot have both branch "AssIsstant" and "AssIsstant/fix-*"
+    branch_prefix: str = "AssIsstant-fix-"
     push: bool = True
     create_pr: bool = True
     dry_run: bool = False
