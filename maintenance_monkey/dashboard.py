@@ -263,29 +263,22 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     lines.append("")
 
     # Overview
+    work = (cfg.dispatch.work_branch or "AssIsstant").strip()
+    base = cfg.project.default_branch or "?"
+
     lines.append(_box_title("OVERVIEW", width))
     lines.append(f"  Daemon     {daemon_disp}")
-    lines.append(f"  Branch     {_git_line(cfg.project.root)}")
+    lines.append(f"  Checkout   {_git_line(cfg.project.root)}")
     lines.append(
-        f"  PR base    {_c(CYAN, cfg.project.default_branch or '?')}"
-        f"  ·  fixes {_c(CYAN, cfg.dispatch.branch_prefix + '*')}"
+        f"  Work on    {_c(CYAN, work)}"
+        f"  ·  merge to {_c(CYAN, base)} when you are ready"
     )
     lines.append("")
 
-    # Drop finished items whose fix branch was deleted (post-merge cleanup)
-    archive_done_jobs_without_branches(cfg, state)
-
     jobs = state.list_jobs(40)
     active = [j for j in jobs if j.status in ("queued", "running", "pushing")]
-    remote = _remote_heads(cfg.project.root)
-    # Done with a PR URL and branch still present = waiting for review
-    review = [
-        j
-        for j in jobs
-        if j.status == "done"
-        and j.pr_url
-        and _branch_still_present(cfg.project.root, j.branch, remote)
-    ]
+    # Recent fixes pushed to AssIsstant (shared branch)
+    recent_done = [j for j in jobs if j.status == "done"][:8]
     failed = [j for j in jobs if j.status == "failed"]
 
     # —— ACTIVE WORK ——
@@ -296,33 +289,47 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
         for j in active:
             st = _c(_status_color(j.status) + BOLD, f"{j.status:8}")
             title = _job_title(state, j, 58)
-            branch = j.branch or "(pending branch)"
             lines.append(f"  {st}  {_c(BOLD, title)}")
             lines.append(
-                f"           id={j.id}  branch={_c(CYAN, branch)}"
+                f"           id={j.id}  → {_c(CYAN, work)}"
                 f"  {_c(DIM, _age(j.updated_at))}"
             )
     lines.append("")
 
-    # —— READY FOR REVIEW ——
+    # —— READY FOR REVIEW (shared AssIsstant vs master) ——
     lines.append(_box_title("READY FOR REVIEW", width))
-    if not review:
-        lines.append(
-            _c(DIM, "  (none — merge & delete fix branches to clear items here)")
-        )
+    lines.append(
+        f"  All monkey commits land on {_c(BOLD + CYAN, work)} "
+        f"(not per-bug branches)."
+    )
+    # Open PR AssIsstant → master if any
+    pr_url = ""
+    for j in recent_done:
+        if j.pr_url:
+            pr_url = j.pr_url
+            break
+    if pr_url:
+        lines.append(f"  {_c(GREEN + BOLD, 'PR')}  {_c(GREEN, _short_pr(pr_url))}")
+    try:
+        from maintenance_monkey.dispatch import git_workflow
+
+        ahead = git_workflow.commits_ahead(cfg, limit=10)
+    except Exception:
+        ahead = []
+    if ahead:
+        lines.append(_c(DIM, f"  commits on {work} not in {base}:"))
+        for c in ahead:
+            short = c if len(c) <= width - 6 else c[: width - 9] + "..."
+            lines.append(f"    {_c(GREEN, '•')} {short}")
     else:
-        for j in review[:12]:
-            title = _job_title(state, j, 55)
-            pr = _short_pr(j.pr_url or "")
-            branch = j.branch or "-"
-            lines.append(f"  {_c(GREEN + BOLD, 'PR')}  {_c(BOLD, title)}")
-            lines.append(f"       {_c(GREEN, pr)}")
-            lines.append(
-                f"       branch={_c(CYAN, branch)}"
-                f"  id={j.id}  {_c(DIM, _age(j.updated_at))}"
-            )
-        if len(review) > 12:
-            lines.append(_c(DIM, f"  … +{len(review) - 12} more"))
+        lines.append(
+            _c(DIM, f"  (no commits on {work} ahead of {base} — nothing pending)")
+        )
+    if recent_done:
+        lines.append(_c(DIM, "  recent jobs:"))
+        for j in recent_done[:5]:
+            title = _job_title(state, j, 50)
+            lines.append(f"    {_c(DIM, _age(j.updated_at))}  {title}")
     lines.append("")
 
     # Failed (compact — only if any)
@@ -336,7 +343,7 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
                 lines.append(f"       {_c(RED, err)}")
         lines.append("")
 
-    # Open UserReport checklist (what's still unchecked on AssIsstant)
+    # Open UserReport checklist
     lines.append(_box_title("USER REPORT (open)", width))
     for row in _user_report_open(cfg):
         lines.append(f"  {row}")
@@ -345,7 +352,7 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     lines.append(
         _c(
             DIM,
-            "  merge PRs · delete fix branches to clear Ready for Review · [x] UserReport · push AssIsstant",
+            f"  review {work} → merge to {base} when happy · [x] UserReport after merge",
         )
     )
     return "\n".join(lines) + "\n"

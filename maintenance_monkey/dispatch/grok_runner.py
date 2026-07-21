@@ -74,20 +74,10 @@ class GrokRunner:
             session_id, grok_text = self._invoke_grok(worktree, prompt_path)
             self.state.update_job(job.id, session_id=session_id)
 
-            committed = git_workflow.commit_if_needed(
+            git_workflow.commit_if_needed(
                 worktree,
                 f"fix: {incident.title[:72]}\n\nMaintenance Monkey job {job.id}",
             )
-            # If still no commits ahead of base, fail softly
-            ahead = subprocess.run(
-                ["git", "rev-list", "--count", f"origin/{self.cfg.project.default_branch}..HEAD"],
-                cwd=worktree,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            # ignore count errors
-            _ = committed
 
             if self.cfg.dispatch.push:
                 self.state.update_job(job.id, status="pushing")
@@ -96,27 +86,29 @@ class GrokRunner:
             pr_url = ""
             if self.cfg.dispatch.create_pr and self.cfg.dispatch.push:
                 body = (
-                    f"## Maintenance Monkey\n\n"
+                    f"## Maintenance Monkey job\n\n"
                     f"- Job: `{job.id}`\n"
                     f"- Incident: `{incident.id}`\n"
                     f"- Source: `{incident.source}`\n"
-                    f"- Fingerprint: `{incident.fingerprint}`\n\n"
+                    f"- Fingerprint: `{incident.fingerprint}`\n"
+                    f"- Branch: `{branch}` (shared work branch)\n\n"
                     f"### Title\n{incident.title}\n\n"
                     f"### Grok summary\n\n{grok_text[:4000] if grok_text else '(no text)'}\n"
                 )
-                pr_url = git_workflow.create_pr(
-                    self.cfg, branch, f"fix: {incident.title[:80]}", body
+                pr_url = git_workflow.ensure_pr(
+                    self.cfg,
+                    f"{self.cfg.project.name}: AssIsstant fixes",
+                    body,
                 )
                 self.state.update_job(job.id, pr_url=pr_url)
 
             self.state.update_job(job.id, status="done")
-            # cleanup worktree on success
             try:
                 git_workflow.remove_worktree(self.cfg, worktree)
             except Exception:
                 log.warning("worktree cleanup failed for %s", worktree)
 
-            msg = f"job {job.id}: done"
+            msg = f"job {job.id}: done → {branch}"
             if pr_url:
                 msg += f" PR {pr_url}"
             return msg

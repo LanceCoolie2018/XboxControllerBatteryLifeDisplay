@@ -54,19 +54,20 @@ max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300
 worktree_parent = ".."
-branch_prefix = "AssIsstant-fix-"
+# All fixes on this one branch (no AssIsstant-fix-* clutter)
+work_branch = "AssIsstant"
 push = true
+# One PR AssIsstant → master; each job adds a comment
 create_pr = true
-# Set true first if you only want prompts/worktrees without calling Grok
 dry_run = false
 job_timeout_seconds = 3600
 rules = """
-Work only in this worktree. Commit on the current branch.
+Work only in this worktree. Commit with a clear message.
+All work is pushed to the AssIsstant branch only — no extra branches.
 Never checkout or push main/master. Never force-push.
 Do not modify secrets, credentials, or .mm/state.
 Prefer minimal diffs. Run existing tests if available.
-When done: ensure changes are committed; do not merge the PR.
-Do not delete other UserReport checklist items.
+Do not merge to master. Do not delete other UserReport checklist items.
 This is an Avalonia/.NET 8 BatteryHUD overlay app.
 """
 

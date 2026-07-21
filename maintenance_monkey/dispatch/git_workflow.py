@@ -1,4 +1,4 @@
-"""Git worktree, branch, push, and PR helpers with hard safety guards."""
+"""Git worktree, AssIsstant work branch, push, and PR helpers with safety guards."""
 
 from __future__ import annotations
 
@@ -50,7 +50,6 @@ def detect_default_branch(root: Path) -> str:
         check=False,
     )
     if r.returncode == 0 and r.stdout.strip():
-        # refs/remotes/origin/main
         ref = r.stdout.strip()
         return ref.rsplit("/", 1)[-1]
     for name in ("main", "master"):
@@ -67,12 +66,16 @@ def detect_default_branch(root: Path) -> str:
     return "main"
 
 
-def ff_pull(cfg: Config) -> str:
-    """Fast-forward the *current* branch from its origin remote (e.g. AssIsstant).
+def work_branch(cfg: Config) -> str:
+    """Single branch where all monkey fixes land (default AssIsstant)."""
+    name = (cfg.dispatch.work_branch or "AssIsstant").strip()
+    if not name or name in PROTECTED:
+        raise GitError(f"invalid work_branch {name!r}")
+    return name
 
-    Used by UserReport pull_before_scan so a Pi daemon on the AssIsstant branch
-    picks up laptop pushes. Does not merge origin/main into the feature branch.
-    """
+
+def ff_pull(cfg: Config) -> str:
+    """Fast-forward the *current* branch from its origin remote (e.g. AssIsstant)."""
     root = cfg.project.root
     try:
         _run(["git", "fetch", "origin"], root)
@@ -80,7 +83,6 @@ def ff_pull(cfg: Config) -> str:
         branch = (cur.stdout or "").strip()
         if not branch:
             branch = cfg.project.default_branch or detect_default_branch(root)
-        # Prefer tracking remote ref when present
         remote_ref = f"origin/{branch}"
         r = _run(["git", "rev-parse", "--verify", remote_ref], root, check=False)
         if r.returncode != 0:
@@ -97,20 +99,26 @@ def ff_pull(cfg: Config) -> str:
         return f"pull error: {e}"
 
 
-def assert_safe_branch(cfg: Config, branch: str) -> None:
-    if not branch.startswith(cfg.dispatch.branch_prefix):
+def assert_safe_work_branch(cfg: Config, branch: str) -> None:
+    """Only the configured work_branch may receive monkey pushes (never main/master)."""
+    allowed = work_branch(cfg)
+    if branch != allowed:
         raise GitError(
-            f"refusing branch {branch!r}: must start with {cfg.dispatch.branch_prefix!r}"
+            f"refusing branch {branch!r}: monkey only pushes to {allowed!r}"
         )
-    base = branch.split("/")[-1]
-    if branch in PROTECTED or base in PROTECTED:
-        raise GitError(f"refusing protected branch name {branch!r}")
+    if branch in PROTECTED:
+        raise GitError(f"refusing protected branch {branch!r}")
 
 
 def create_worktree(cfg: Config, job_id: str) -> tuple[Path, str]:
+    """Detached worktree at origin/<work_branch> — all fixes share that branch name.
+
+    Detached HEAD avoids checking AssIsstant out twice (main tree already uses it).
+    After commits, push with: git push origin HEAD:AssIsstant
+    """
     root = cfg.project.root
-    branch = f"{cfg.dispatch.branch_prefix}{job_id}"
-    assert_safe_branch(cfg, branch)
+    branch = work_branch(cfg)
+    assert_safe_work_branch(cfg, branch)
 
     parent = Path(cfg.dispatch.worktree_parent)
     if not parent.is_absolute():
@@ -120,27 +128,35 @@ def create_worktree(cfg: Config, job_id: str) -> tuple[Path, str]:
     wt_name = f"{root.name}-mm-{job_id}"
     worktree = (parent / wt_name).resolve()
 
-    # Confine worktree under parent
     if parent not in worktree.parents and worktree.parent != parent:
         raise GitError(f"worktree path escapes parent: {worktree}")
 
     if worktree.exists():
-        raise GitError(f"worktree path already exists: {worktree}")
+        # leftover from a crashed job
+        remove_worktree(cfg, worktree)
 
-    base = cfg.project.default_branch or detect_default_branch(root)
     _run(["git", "fetch", "origin"], root)
-    start_ref = f"origin/{base}"
-    # fallback to local base
+    start_ref = f"origin/{branch}"
     r = _run(["git", "rev-parse", "--verify", start_ref], root, check=False)
     if r.returncode != 0:
-        start_ref = base
-        _run(["git", "rev-parse", "--verify", start_ref], root)
+        # first-time: create work_branch from default if missing on remote
+        base = cfg.project.default_branch or detect_default_branch(root)
+        base_ref = f"origin/{base}"
+        _run(["git", "rev-parse", "--verify", base_ref], root)
+        _run(
+            ["git", "worktree", "add", "-b", branch, str(worktree), base_ref],
+            root,
+        )
+        _run(["git", "push", "-u", "origin", branch], worktree, timeout=180)
+        log.info("created work_branch %s and worktree %s", branch, worktree)
+        return worktree, branch
 
+    # Detached at latest AssIsstant — no new branch name
     _run(
-        ["git", "worktree", "add", "-b", branch, str(worktree), start_ref],
+        ["git", "worktree", "add", "--detach", str(worktree), start_ref],
         root,
     )
-    log.info("created worktree %s on %s", worktree, branch)
+    log.info("created detached worktree %s at %s", worktree, start_ref)
     return worktree, branch
 
 
@@ -160,10 +176,9 @@ def has_changes(worktree: Path) -> bool:
 
 def commit_if_needed(worktree: Path, message: str) -> bool:
     if not has_changes(worktree):
-        # maybe agent already committed
         return False
     _run(["git", "add", "-A"], worktree)
-    # avoid committing .mm state noise if any
+    # Don't commit monkey runtime noise if present
     r = _run(["git", "status", "--porcelain"], worktree, check=False)
     if not r.stdout.strip():
         return False
@@ -172,17 +187,82 @@ def commit_if_needed(worktree: Path, message: str) -> bool:
 
 
 def push_branch(cfg: Config, worktree: Path, branch: str) -> None:
-    assert_safe_branch(cfg, branch)
-    if branch in PROTECTED or branch.endswith("/main") or branch.endswith("/master"):
-        raise GitError(f"refusing to push protected branch {branch}")
-    _run(["git", "push", "-u", "origin", branch], worktree, timeout=180)
+    """Push current worktree HEAD to origin/<work_branch> (no per-job branches)."""
+    assert_safe_work_branch(cfg, branch)
+    # Refresh remote tip; if others pushed, try rebase for serial agent work
+    _run(["git", "fetch", "origin"], worktree, check=False)
+    remote = f"origin/{branch}"
+    r = _run(["git", "rev-parse", "--verify", remote], worktree, check=False)
+    if r.returncode == 0:
+        # Rebase our commits onto latest AssIsstant if needed
+        rb = _run(
+            ["git", "rebase", remote],
+            worktree,
+            check=False,
+            timeout=120,
+        )
+        if rb.returncode != 0:
+            _run(["git", "rebase", "--abort"], worktree, check=False)
+            raise GitError(
+                f"cannot rebase onto {remote}; pull AssIsstant and retry.\n"
+                f"{rb.stderr or rb.stdout}"
+            )
+    # Push detached HEAD to the single work branch
+    _run(
+        ["git", "push", "origin", f"HEAD:refs/heads/{branch}"],
+        worktree,
+        timeout=180,
+    )
+    log.info("pushed worktree HEAD → origin/%s", branch)
 
 
-def create_pr(cfg: Config, branch: str, title: str, body: str) -> str:
-    assert_safe_branch(cfg, branch)
+def ensure_pr(cfg: Config, title: str, body: str) -> str:
+    """Ensure a single PR work_branch → default_branch exists; return URL."""
+    branch = work_branch(cfg)
+    assert_safe_work_branch(cfg, branch)
     base = cfg.project.default_branch or detect_default_branch(cfg.project.root)
-    if base in (branch,):
-        raise GitError("PR base equals head")
+    if base == branch:
+        raise GitError("PR base equals work_branch")
+
+    # Existing open PR?
+    listed = _run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--base",
+            base,
+            "--head",
+            branch,
+            "--state",
+            "open",
+            "--json",
+            "url",
+            "--limit",
+            "1",
+        ],
+        cfg.project.root,
+        check=False,
+        timeout=60,
+    )
+    if listed.returncode == 0 and listed.stdout.strip():
+        try:
+            import json
+
+            rows = json.loads(listed.stdout)
+            if rows and rows[0].get("url"):
+                url = rows[0]["url"]
+                # Comment with this job's summary
+                _run(
+                    ["gh", "pr", "comment", url, "--body", body[:6000]],
+                    cfg.project.root,
+                    check=False,
+                    timeout=60,
+                )
+                return url
+        except Exception:
+            pass
+
     body_file = cfg.mm_dir / "pr_body.md"
     body_file.write_text(body, encoding="utf-8")
     r = _run(
@@ -206,6 +286,11 @@ def create_pr(cfg: Config, branch: str, title: str, body: str) -> str:
     return url[-1] if url else ""
 
 
+def create_pr(cfg: Config, branch: str, title: str, body: str) -> str:
+    """Back-compat name: single work_branch PR."""
+    return ensure_pr(cfg, title, body)
+
+
 def remove_worktree(cfg: Config, worktree: Path) -> None:
     root = cfg.project.root
     if not worktree.exists():
@@ -221,3 +306,25 @@ def remove_worktree(cfg: Config, worktree: Path) -> None:
 
 def short_job_slug(job_id: str) -> str:
     return re.sub(r"[^a-zA-Z0-9-]", "", job_id)[:12]
+
+
+def commits_ahead(cfg: Config, limit: int = 12) -> list[str]:
+    """Recent commits on work_branch not in default_branch (for dashboard)."""
+    root = cfg.project.root
+    branch = work_branch(cfg)
+    base = cfg.project.default_branch or detect_default_branch(root)
+    _run(["git", "fetch", "origin"], root, check=False)
+    r = _run(
+        [
+            "git",
+            "log",
+            f"origin/{base}..origin/{branch}",
+            "--oneline",
+            f"-{limit}",
+        ],
+        root,
+        check=False,
+    )
+    if r.returncode != 0 or not r.stdout.strip():
+        return []
+    return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]

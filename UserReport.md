@@ -2,7 +2,7 @@
 
 <!--
   Maintenance Monkey reads this file.
-  - Unchecked items (- [ ]) are open work → AssIsstant-fix-* branch + PR.
+  - Unchecked items (- [ ]) are open work → fixed on the AssIsstant branch.
   - Checked items (- [x]) are ignored.
   - Optional stable id: - [ ] [UR-short-id] description...
   Each fix must be its own top-level checkbox line (not indented under another item).

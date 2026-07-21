@@ -9,12 +9,12 @@ from typing import Any
 
 
 DEFAULT_RULES = """\
-Work only in this worktree. Commit on the current branch.
+Work only in this worktree. Commit with a clear message.
+All work is pushed to the AssIsstant branch only — no extra branches.
 Never checkout or push main/master. Never force-push.
 Do not modify secrets, credentials, or .mm/state.
 Prefer minimal diffs. Run existing tests if available.
-When done: ensure changes are committed; do not merge the PR.
-Do not delete other UserReport checklist items.
+Do not merge to master. Do not delete other UserReport checklist items.
 """
 
 
@@ -65,9 +65,12 @@ class DispatchConfig:
     max_concurrent_jobs: int = 1
     cooldown_seconds: int = 300
     worktree_parent: str = ".."
-    # Use hyphen, not slash: git cannot have both branch "AssIsstant" and "AssIsstant/fix-*"
-    branch_prefix: str = "AssIsstant-fix-"
+    # Single branch for all monkey fixes (no per-job branches)
+    work_branch: str = "AssIsstant"
+    # Deprecated: ignored for pushes; kept for older mm.toml files
+    branch_prefix: str = ""
     push: bool = True
+    # One ongoing PR: work_branch → default_branch (commented on each job)
     create_pr: bool = True
     dry_run: bool = False
     rules: str = DEFAULT_RULES
@@ -204,6 +207,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             debounce_seconds=float(user_report.get("debounce_seconds", 2)),
             pull_before_scan=bool(user_report.get("pull_before_scan", False)),
             auto_check_on_pr=bool(user_report.get("auto_check_on_pr", False)),
+            remote_poll_seconds=float(user_report.get("remote_poll_seconds", 30)),
         ),
         dispatch=DispatchConfig(
             grok_bin=str(dispatch.get("grok_bin") or "grok"),
@@ -212,7 +216,8 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             max_concurrent_jobs=int(dispatch.get("max_concurrent_jobs", 1)),
             cooldown_seconds=int(dispatch.get("cooldown_seconds", 300)),
             worktree_parent=str(dispatch.get("worktree_parent") or ".."),
-            branch_prefix=str(dispatch.get("branch_prefix") or "AssIsstant-fix-"),
+            work_branch=str(dispatch.get("work_branch") or "AssIsstant"),
+            branch_prefix=str(dispatch.get("branch_prefix") or ""),
             push=bool(dispatch.get("push", True)),
             create_pr=bool(dispatch.get("create_pr", True)),
             dry_run=bool(dispatch.get("dry_run", False)),
@@ -257,6 +262,8 @@ path = "UserReport.md"
 debounce_seconds = 2
 pull_before_scan = false
 auto_check_on_pr = false
+# Pi daemon: pull AssIsstant from origin this often so laptop pushes are seen
+remote_poll_seconds = 30
 
 [patterns]
 include = [
@@ -281,17 +288,20 @@ max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300
 worktree_parent = ".."
-branch_prefix = "AssIsstant-fix-"
+# All fixes land on this one branch (no AssIsstant-fix-* branches)
+work_branch = "AssIsstant"
 push = true
+# Keep one PR: AssIsstant → main/master; each job comments on it
 create_pr = true
 dry_run = false
 job_timeout_seconds = 3600
 rules = """
-Work only in this worktree. Commit on the current branch.
+Work only in this worktree. Commit your fix with a clear message.
+All work is pushed to the AssIsstant branch only.
 Never checkout or push main/master. Never force-push.
 Do not modify secrets, credentials, or .mm/state.
 Prefer minimal diffs. Run existing tests if available.
-When done: ensure changes are committed; do not merge the PR.
+Do not open extra branches or PRs. Do not merge to master.
 Do not delete other UserReport checklist items.
 """
 
