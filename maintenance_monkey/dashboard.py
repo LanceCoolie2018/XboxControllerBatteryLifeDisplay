@@ -275,11 +275,15 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     )
     lines.append("")
 
-    # Honor human "task … complete" commits (clears Ready for Review)
+    # Honor human "task … complete" commits; clear resolved failures
     try:
-        from maintenance_monkey.pipeline.acknowledge import process_task_complete_commits
+        from maintenance_monkey.pipeline.acknowledge import (
+            clear_resolved_failures,
+            process_task_complete_commits,
+        )
 
         process_task_complete_commits(cfg, state)
+        clear_resolved_failures(cfg, state)
     except Exception:
         pass
 
@@ -336,10 +340,16 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
             lines.append(_c(DIM, f"  … +{len(ready) - 15} more"))
     lines.append("")
 
-    # Failed (compact — only if any)
+    # Failed — auto-clears when same issue is fixed / UserReport checked / task complete
     if failed:
         lines.append(_box_title("FAILED", width))
-        for j in failed[:5]:
+        lines.append(
+            _c(
+                DIM,
+                "  Clears when the issue is fixed, UserReport item is [x], or you push task complete",
+            )
+        )
+        for j in failed[:8]:
             title = _job_title(state, j, 50)
             err = (j.error or "")[:50]
             lines.append(f"  {_c(RED, 'fail')}  {title}")

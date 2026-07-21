@@ -112,6 +112,24 @@ class GrokRunner:
                 self.state.update_job(job.id, pr_url=pr_url)
 
             self.state.update_job(job.id, status="done")
+            # Failed section: drop older failures for the same fingerprint
+            try:
+                from maintenance_monkey.pipeline.acknowledge import (
+                    archive_failed_for_fingerprint,
+                )
+
+                n = archive_failed_for_fingerprint(
+                    self.state, incident.fingerprint, by_job=job.id
+                )
+                if n:
+                    log.info(
+                        "archived %s failed job(s) for fingerprint %s",
+                        n,
+                        incident.fingerprint,
+                    )
+            except Exception:
+                log.exception("could not archive superseded failures")
+
             try:
                 git_workflow.remove_worktree(self.cfg, worktree)
             except Exception:

@@ -94,10 +94,15 @@ def _job_matches_token(state: State, job: Job, token: str) -> bool:
     return False
 
 
+def _reviewable_jobs(state: State) -> list[Job]:
+    """Jobs shown in Ready for Review or Failed until resolved/acked."""
+    return [j for j in state.list_jobs(100) if j.status in ("done", "failed")]
+
+
 def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
     """
     Scan new commits on the work branch for 'task … complete' messages.
-    Archive matching done jobs so Ready for Review clears.
+    Archive matching done *and* failed jobs.
 
     Returns human-readable messages for logs/dashboard.
     """
@@ -109,7 +114,6 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
 
     commits = _recent_commit_messages(cfg, since or None, limit=50)
     if not commits:
-        # Still advance cursor to tip so we don't re-scan forever on first run
         tip = _run_git(cfg, ["rev-parse", f"origin/{_work_branch(cfg)}"])
         if not tip:
             tip = _run_git(cfg, ["rev-parse", _work_branch(cfg)])
@@ -117,23 +121,21 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
             cursor_file.write_text(tip + "\n", encoding="utf-8")
         return []
 
-    # Process oldest first so multiple ack commits apply in order
     commits_chrono = list(reversed(commits))
     messages: list[str] = []
-    done_jobs = [j for j in state.list_jobs(100) if j.status == "done"]
+    pending = _reviewable_jobs(state)
 
     for sha, subject in commits_chrono:
-        # Skip monkey's own chore commits from auto-check (optional)
         if RE_ALL.search(subject):
             n = 0
-            for j in list(done_jobs):
+            for j in list(pending):
                 state.update_job(
                     j.id,
                     status="archived",
                     meta={**(j.meta or {}), "acked_by": sha, "acked_msg": subject},
                 )
                 n += 1
-            done_jobs = [j for j in state.list_jobs(100) if j.status == "done"]
+            pending = _reviewable_jobs(state)
             messages.append(f"ack all ({n} jobs) via commit {sha[:8]}: {subject}")
             log.info("%s", messages[-1])
             continue
@@ -142,11 +144,10 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
         if not m:
             continue
         token = m.group(1).strip()
-        # Avoid treating "task complete" as token "complete" only — RE_ALL should catch
         if token.lower() in ("", "all"):
             continue
         matched = 0
-        for j in list(done_jobs):
+        for j in list(pending):
             if _job_matches_token(state, j, token):
                 state.update_job(
                     j.id,
@@ -154,13 +155,110 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
                     meta={**(j.meta or {}), "acked_by": sha, "acked_msg": subject},
                 )
                 matched += 1
-        done_jobs = [j for j in state.list_jobs(100) if j.status == "done"]
+        pending = _reviewable_jobs(state)
         messages.append(
             f"ack {matched} job(s) for {token!r} via commit {sha[:8]}: {subject}"
         )
         log.info("%s", messages[-1])
 
-    # Advance cursor to newest commit we considered
     newest = commits[0][0]
     cursor_file.write_text(newest + "\n", encoding="utf-8")
     return messages
+
+
+def clear_resolved_failures(cfg: Config, state: State) -> list[str]:
+    """
+    Archive failed jobs whose issue no longer persists:
+
+    1. A later (or any) **done** job shares the same fingerprint — fixed.
+    2. UserReport item for that fingerprint is checked off — no longer open.
+    3. Manual: same as Ready for Review via "task … complete" (handled separately).
+    """
+    from maintenance_monkey.sensors.user_report import open_items
+
+    messages: list[str] = []
+    jobs = state.list_jobs(100)
+    failed = [j for j in jobs if j.status == "failed"]
+    if not failed:
+        return messages
+
+    # Fingerprints that successfully completed
+    done_fps = {j.fingerprint for j in jobs if j.status == "done"}
+    # Also treat archived-from-done as success? If archived after done, fingerprint
+    # may only have archived jobs. Count any non-failed success:
+    success_fps = {
+        j.fingerprint
+        for j in jobs
+        if j.status in ("done", "archived")
+        and (j.meta or {}).get("archived_reason") != "branch_deleted"
+    }
+    # Simpler: any job with same fingerprint that is done clears failures
+    # If only archived exists after task-complete of a done job, failures already cleared.
+    success_fps |= done_fps
+
+    # Open UserReport fingerprints still active
+    open_fps: set[str] = set()
+    ur_path = cfg.project.root / cfg.user_report.path
+    if ur_path.is_file():
+        try:
+            text = ur_path.read_text(encoding="utf-8", errors="replace")
+            opens, _ = open_items(text)
+            open_fps = {i.fingerprint for i in opens}
+        except OSError:
+            pass
+
+    for j in failed:
+        reason = None
+        if j.fingerprint in success_fps:
+            # Prefer only if there is a done job (explicit fix)
+            if j.fingerprint in done_fps:
+                reason = "superseded_by_successful_job"
+            else:
+                # archived success without done in list — check any archived with pr or fix
+                for other in jobs:
+                    if (
+                        other.fingerprint == j.fingerprint
+                        and other.id != j.id
+                        and other.status == "archived"
+                        and other.pr_url
+                    ):
+                        reason = "superseded_by_successful_job"
+                        break
+        if reason is None and j.fingerprint.startswith("userreport:"):
+            # UserReport: if item is no longer open, issue considered cleared
+            if j.fingerprint not in open_fps:
+                reason = "user_report_item_no_longer_open"
+
+        if not reason:
+            continue
+
+        state.update_job(
+            j.id,
+            status="archived",
+            meta={**(j.meta or {}), "resolved_reason": reason},
+        )
+        messages.append(f"cleared failed job {j.id} ({reason})")
+        log.info("%s", messages[-1])
+
+    return messages
+
+
+def archive_failed_for_fingerprint(state: State, fingerprint: str, *, by_job: str) -> int:
+    """When a job succeeds, drop older failures for the same issue."""
+    n = 0
+    for j in state.list_jobs(100):
+        if j.status != "failed":
+            continue
+        if j.fingerprint != fingerprint:
+            continue
+        state.update_job(
+            j.id,
+            status="archived",
+            meta={
+                **(j.meta or {}),
+                "resolved_reason": "superseded_by_successful_job",
+                "resolved_by_job": by_job,
+            },
+        )
+        n += 1
+    return n
