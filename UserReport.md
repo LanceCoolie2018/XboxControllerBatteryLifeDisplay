@@ -20,7 +20,7 @@
 - [x] Event Type MonikerException thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") — same root cause as above (WMI GetDeviceProperties on unsupported PnP devices)
 - [x] still falsly indicating that the controller is connected when its not — fixed: require confirm polls on first sighting; BlueZ/sysfs address veto; WMI IsConnected/Present
 - [x] widget needs to be a little smaller, i dont want it interfearing with gameplay but i still want the buttons that where added, the bottom two lines can be shrunk to just say the name of the device and wether or not they are connected
-- [ ] make the percent blue.
+- [ ] make the percent display blue for better reading.
 
 ## Notes
 
