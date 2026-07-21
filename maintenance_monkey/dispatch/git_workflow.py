@@ -75,7 +75,11 @@ def work_branch(cfg: Config) -> str:
 
 
 def ff_pull(cfg: Config) -> str:
-    """Fast-forward the *current* branch from its origin remote (e.g. AssIsstant)."""
+    """Fast-forward the *current* branch from its origin remote (e.g. AssIsstant).
+
+    The Pi daemon treats origin as source of truth for UserReport.md — local
+    dirt on that file is discarded so a laptop push is never blocked.
+    """
     root = cfg.project.root
     try:
         _run(["git", "fetch", "origin"], root)
@@ -87,13 +91,32 @@ def ff_pull(cfg: Config) -> str:
         r = _run(["git", "rev-parse", "--verify", remote_ref], root, check=False)
         if r.returncode != 0:
             return f"pull skipped: no {remote_ref}"
+
+        # Discard local edits to UserReport so ff-only pull cannot get stuck
+        ur = cfg.user_report.path
+        st = _run(["git", "status", "--porcelain", "--", ur], root, check=False)
+        if st.stdout.strip():
+            _run(["git", "checkout", "--", ur], root, check=False)
+            log.info("ff_pull: restored local %s from HEAD before pull", ur)
+
         m = _run(
             ["git", "merge", "--ff-only", remote_ref],
             root,
             check=False,
         )
         if m.returncode != 0:
-            return f"pull skipped/failed: {m.stderr.strip() or m.stdout.strip()}"
+            # Last resort: if still blocked by UserReport, force checkout from remote
+            err = (m.stderr or m.stdout or "").strip()
+            if "UserReport" in err or "overwritten by merge" in err:
+                _run(["git", "checkout", "-f", remote_ref, "--", ur], root, check=False)
+                m2 = _run(
+                    ["git", "merge", "--ff-only", remote_ref],
+                    root,
+                    check=False,
+                )
+                if m2.returncode == 0:
+                    return f"ff-only pull {remote_ref} ok (after UserReport reset)"
+            return f"pull skipped/failed: {err}"
         return f"ff-only pull {remote_ref} ok"
     except GitError as e:
         return f"pull error: {e}"
