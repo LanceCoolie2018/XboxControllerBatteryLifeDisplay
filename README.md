@@ -114,7 +114,7 @@ python3 -m maintenance_monkey start
 # or: python3 -m maintenance_monkey install-systemd
 ```
 
-Fixes land as `AssIsstant/fix-*` branches + PRs into **master** for you to review.
+Fixes land as `AssIsstant-fix-*` branches + PRs into **master** for you to review.
 
 ## License
 
