@@ -7,9 +7,18 @@ namespace BatteryHUD.Services;
 /// Only devices with a reported battery % are listed.
 /// Keeps recently-seen (with %) devices through a short grace window so
 /// flaky BT/WMI polls don't blank the HUD mid-game.
+/// Disconnects on the first miss / IsPresent=false; reconnects only after
+/// consecutive present polls so stale stack ghosts don't flap "online".
 /// </summary>
 public sealed class BatteryMonitorService : IDisposable
 {
+    /// <summary>
+    /// How many consecutive polls must report the device present before we
+    /// flip offline → online. One poll is enough to go offline.
+    /// At the default 3s interval this is ~6s of stable presence.
+    /// </summary>
+    private const int ReconnectConfirmPolls = 2;
+
     private readonly IBatteryDeviceProvider _provider;
     private readonly object _gate = new();
     private readonly Dictionary<string, TrackedDevice> _tracked = new(StringComparer.Ordinal);
@@ -134,12 +143,7 @@ public sealed class BatteryMonitorService : IDisposable
             {
                 // Don't wipe the list on a blank poll (common BT/WMI blip)
                 foreach (var t in _tracked.Values)
-                {
-                    if (now - t.LastSeen > _grace)
-                        continue;
-                    // Mark soft-disconnected but keep entry + last %
-                    t.Device = t.Device with { IsPresent = false };
-                }
+                    MarkAbsent(t);
                 PruneExpired(now);
             }
             else
@@ -161,12 +165,7 @@ public sealed class BatteryMonitorService : IDisposable
                             continue;
                         }
 
-                        existing.Device = device with
-                        {
-                            Percent = percent,
-                            IsPresent = device.IsPresent
-                        };
-                        existing.LastSeen = now;
+                        ApplyObservation(existing, device with { Percent = percent }, now);
                     }
                     else
                     {
@@ -183,42 +182,115 @@ public sealed class BatteryMonitorService : IDisposable
                             if (percent is null)
                                 continue;
 
-                            _tracked[key] = new TrackedDevice
-                            {
-                                Device = device with { Percent = percent },
-                                LastSeen = now
-                            };
+                            // Preserve offline streak / last-seen across id churn
+                            byStable.Device = byStable.Device with { Id = key };
+                            ApplyObservation(byStable, device with { Percent = percent }, now);
+                            _tracked[key] = byStable;
                         }
                         else
                         {
+                            // First sighting: trust provider presence (no prior offline flap)
                             _tracked[key] = new TrackedDevice
                             {
                                 Device = device,
-                                LastSeen = now
+                                LastSeen = now,
+                                PresentStreak = device.IsPresent ? 1 : 0
                             };
                         }
                     }
                 }
 
-                // Devices not in this snapshot: keep during grace only if they still have a %
+                // Devices not in this snapshot: offline immediately, keep during grace only
                 foreach (var kv in _tracked.ToList())
                 {
                     if (seenIds.Contains(kv.Key))
                         continue;
 
-                    if (kv.Value.Device.Percent is null || now - kv.Value.LastSeen > _grace)
+                    if (kv.Value.Device.Percent is null)
                     {
                         _tracked.Remove(kv.Key);
+                        continue;
                     }
-                    else
-                    {
-                        kv.Value.Device = kv.Value.Device with { IsPresent = false };
-                    }
+
+                    MarkAbsent(kv.Value);
+                    if (now - kv.Value.LastSeen > _grace)
+                        _tracked.Remove(kv.Key);
                 }
             }
         }
 
         Updated?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Merge a provider observation into a tracked device with disconnect-fast /
+    /// reconnect-slow hysteresis so stale BT/WMI ghosts don't flap online.
+    /// </summary>
+    private static void ApplyObservation(TrackedDevice tracked, BatteryDevice observed, DateTimeOffset now)
+    {
+        var percent = observed.Percent ?? tracked.Device.Percent;
+
+        if (!observed.IsPresent)
+        {
+            // Provider says offline → register disconnect immediately
+            MarkAbsent(tracked, percent, observed);
+            return;
+        }
+
+        // Provider says present
+        if (tracked.Device.IsPresent)
+        {
+            // Already online: stay online, refresh reading + grace clock
+            tracked.PresentStreak = Math.Min(tracked.PresentStreak + 1, ReconnectConfirmPolls);
+            tracked.LastSeen = now;
+            tracked.Device = observed with
+            {
+                Percent = percent,
+                IsPresent = true
+            };
+            return;
+        }
+
+        // Currently offline — require consecutive present polls before flipping online.
+        // Do NOT advance LastSeen on unconfirmed ghosts (would reset the grace timer).
+        tracked.PresentStreak++;
+        if (tracked.PresentStreak >= ReconnectConfirmPolls)
+        {
+            tracked.LastSeen = now;
+            tracked.Device = observed with
+            {
+                Percent = percent,
+                IsPresent = true
+            };
+        }
+        else
+        {
+            // Keep offline UI; refresh % if the stack still has a cached reading
+            tracked.Device = tracked.Device with
+            {
+                Percent = percent,
+                IsPresent = false,
+                Name = observed.Name,
+                Kind = observed.Kind ?? tracked.Device.Kind,
+                Address = observed.Address ?? tracked.Device.Address,
+                IsCharging = false
+            };
+        }
+    }
+
+    private static void MarkAbsent(TrackedDevice tracked, int? percent = null, BatteryDevice? observed = null)
+    {
+        tracked.PresentStreak = 0;
+        // LastSeen stays at last *confirmed* presence so grace counts down correctly
+        tracked.Device = tracked.Device with
+        {
+            Percent = percent ?? tracked.Device.Percent,
+            IsPresent = false,
+            IsCharging = false,
+            Name = observed?.Name ?? tracked.Device.Name,
+            Kind = observed?.Kind ?? tracked.Device.Kind,
+            Address = observed?.Address ?? tracked.Device.Address
+        };
     }
 
     private void PruneExpired(DateTimeOffset now)
@@ -239,6 +311,9 @@ public sealed class BatteryMonitorService : IDisposable
     private sealed class TrackedDevice
     {
         public required BatteryDevice Device { get; set; }
+        /// <summary>Last time the device was confirmed present (not a single-poll ghost).</summary>
         public DateTimeOffset LastSeen { get; set; }
+        /// <summary>Consecutive polls reporting IsPresent=true while reconciling offline→online.</summary>
+        public int PresentStreak { get; set; }
     }
 }
