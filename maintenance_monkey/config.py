@@ -57,6 +57,8 @@ class UserReportConfig:
     # How often the daemon fetches/pulls the current branch and re-scans
     # UserReport for laptop pushes. 0 disables (local mtime watch only).
     remote_poll_seconds: float = 30.0
+    # Regexes (Python re) — open items matching any are never enqueued
+    ignore: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -263,7 +265,7 @@ enabled = true
 path = "UserReport.md"
 debounce_seconds = 2
 pull_before_scan = false
-auto_check_on_pr = false
+auto_check_on_pr = true
 # Pi daemon: pull AssIsstant from origin this often so laptop pushes are seen
 remote_poll_seconds = 30
 
