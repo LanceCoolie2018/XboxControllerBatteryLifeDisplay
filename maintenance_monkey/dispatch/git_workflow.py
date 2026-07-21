@@ -68,9 +68,9 @@ def detect_default_branch(root: Path) -> str:
 
 
 def ff_pull(cfg: Config) -> str:
-    """Fast-forward the *current* branch from its origin remote (e.g. Grok).
+    """Fast-forward the *current* branch from its origin remote (e.g. AssIsstant).
 
-    Used by UserReport pull_before_scan so a Pi daemon on the Grok branch
+    Used by UserReport pull_before_scan so a Pi daemon on the AssIsstant branch
     picks up laptop pushes. Does not merge origin/main into the feature branch.
     """
     root = cfg.project.root

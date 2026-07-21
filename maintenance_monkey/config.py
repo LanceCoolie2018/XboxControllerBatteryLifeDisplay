@@ -62,7 +62,8 @@ class DispatchConfig:
     max_concurrent_jobs: int = 1
     cooldown_seconds: int = 300
     worktree_parent: str = ".."
-    branch_prefix: str = "grok/fix-"
+    # Use hyphen, not slash: git cannot have both branch "AssIsstant" and "AssIsstant/fix-*"
+    branch_prefix: str = "AssIsstant-fix-"
     push: bool = True
     create_pr: bool = True
     dry_run: bool = False
@@ -208,7 +209,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             max_concurrent_jobs=int(dispatch.get("max_concurrent_jobs", 1)),
             cooldown_seconds=int(dispatch.get("cooldown_seconds", 300)),
             worktree_parent=str(dispatch.get("worktree_parent") or ".."),
-            branch_prefix=str(dispatch.get("branch_prefix") or "grok/fix-"),
+            branch_prefix=str(dispatch.get("branch_prefix") or "AssIsstant/fix-"),
             push=bool(dispatch.get("push", True)),
             create_pr=bool(dispatch.get("create_pr", True)),
             dry_run=bool(dispatch.get("dry_run", False)),
@@ -277,7 +278,7 @@ max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300
 worktree_parent = ".."
-branch_prefix = "grok/fix-"
+branch_prefix = "AssIsstant/fix-"
 push = true
 create_pr = true
 dry_run = false
