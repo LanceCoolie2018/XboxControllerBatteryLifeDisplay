@@ -11,7 +11,7 @@
 ## Open
 
 <!-- Add items you want fixed. Example for your first end-to-end test: -->
-- [ ] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
+- [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
 
 ## Notes
 
