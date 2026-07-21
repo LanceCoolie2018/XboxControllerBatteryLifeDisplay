@@ -12,7 +12,7 @@
 ## Open
 
 - [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
-- [ ] [UR-disconnect] Disconnection does not register, still not getting a positive connection and disconnection status
+- [x] [UR-disconnect] Disconnection does not register, still not getting a positive connection and disconnection status
 - [x] [UR-Closing] needs an exit button to close the app
 - [x] [UR-spacing] app is now too wide can we shrink it a little
 - [x] Event Type Moniker	Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") — fixed: skip-list devices that fail GetDeviceProperties; light polls only re-probe known battery devices

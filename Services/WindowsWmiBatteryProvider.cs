@@ -171,13 +171,16 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
         }
         catch (System.Management.ManagementException ex)
         {
-            // Whole-query WMI glitch — return empty so monitor keeps sticky cache.
-            // Log once: first-chance "Generic failure" is expected under load / BT sleep.
+            // Whole-query WMI glitch — rethrow so the monitor keeps sticky presence
+            // instead of treating an empty list as a real disconnect (UR-disconnect).
+            // Per-device GetDeviceProperties failures are already skip-listed above.
             if (!_loggedWmiQueryFailure)
             {
                 _loggedWmiQueryFailure = true;
                 FileLog.Warn($"WMI PnP query failed (further failures suppressed): {ex.Message}");
             }
+
+            throw;
         }
         catch (Exception ex)
         {
@@ -186,6 +189,9 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                 _loggedWmiQueryFailure = true;
                 FileLog.Warn($"WMI enumerate failed (further failures suppressed): {ex.Message}");
             }
+
+            // Same sticky-presence path as ManagementException
+            throw;
         }
 
         return results

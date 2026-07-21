@@ -34,11 +34,11 @@ public sealed record BatteryDevice
         get
         {
             if (!IsPresent)
-                return Percent is int p ? $"Last {p}% · offline" : "Disconnected";
+                return Percent is int p ? $"Disconnected · last {p}%" : "Disconnected";
             if (Percent is null)
-                return "No battery %"; // should not appear in the picker
-            var suffix = IsCharging ? " charging" : "";
-            return $"{Percent}%{suffix}";
+                return "Connected · no battery %"; // should not appear in the picker
+            var suffix = IsCharging ? " · charging" : "";
+            return $"Connected · {Percent}%{suffix}";
         }
     }
 
