@@ -60,7 +60,7 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 320 : Width);
         var h = (int)(double.IsNaN(Height) || Height <= 0 ? 88 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
@@ -141,7 +141,7 @@ public partial class OverlayWindow : Window
         else if (device.Percent is int pct && pct <= low)
             HintText.Text = "Low battery — good time to swap before a fight";
         else
-            HintText.Text = "Drag to move · Switch anytime";
+            HintText.Text = "Drag to move · Switch or Exit anytime";
     }
 
     private async void OnSwitchClick(object? sender, RoutedEventArgs e)
@@ -182,9 +182,20 @@ public partial class OverlayWindow : Window
         Render();
     }
 
+    private void OnExitClick(object? sender, RoutedEventArgs e)
+    {
+        // Overlay has no system chrome; Exit is the primary way to quit.
+        // Closing the main window shuts down the classic desktop lifetime
+        // and runs Closing → PersistSettings + App desktop.Exit cleanup.
+        Close();
+    }
+
+    private static bool IsOverButton(Visual? source, Button button) =>
+        source is not null && (source == button || button.IsVisualAncestorOf(source));
+
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Source is Visual v && (v == SwitchButton || SwitchButton.IsVisualAncestorOf(v)))
+        if (e.Source is Visual v && (IsOverButton(v, SwitchButton) || IsOverButton(v, ExitButton)))
             return;
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
