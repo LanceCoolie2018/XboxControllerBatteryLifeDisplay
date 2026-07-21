@@ -1,0 +1,77 @@
+# Maintenance Monkey — BatteryHUD
+# https://github.com/LanceCoolie2018/maintenance-monkey
+
+[project]
+name = "BatteryHUD"
+default_branch = "master"
+
+[watch.logs]
+# FileLog writes repo-root/logs/batteryhud.log (also under bin/ when cwd differs)
+paths = [
+  "logs/**/*.log",
+  "bin/**/logs/**/*.log",
+]
+from_start = false
+
+[watch.process]
+# App is a GUI — run it yourself on the laptop; monkey only tails logs + UserReport
+enabled = false
+restart_on_exit = false
+incident_on_crash = true
+
+[watch.user_report]
+enabled = true
+path = "UserReport.md"
+debounce_seconds = 2
+# On the Pi: pull latest Grok branch before scanning (laptop edits via push)
+pull_before_scan = true
+auto_check_on_pr = false
+
+[patterns]
+include = [
+  '(?i)exception',
+  '(?i)traceback \\(most recent call last\\)',
+  'Unhandled exception',
+  '(?i)fatal error',
+  'NullReferenceException',
+  'InvalidOperationException',
+  'ArgumentNullException',
+  '(?i)\\[ERROR\\]',
+]
+exclude = [
+  '(?i)healthcheck failed.*retrying',
+]
+
+[known_bugs]
+path = "known_bugs.yaml"
+match_logs = true
+
+[dispatch]
+grok_bin = "grok"
+max_turns = 80
+max_concurrent_jobs = 1
+cooldown_seconds = 300
+worktree_parent = ".."
+branch_prefix = "grok/fix-"
+push = true
+create_pr = true
+# Set true first if you only want prompts/worktrees without calling Grok
+dry_run = false
+job_timeout_seconds = 3600
+rules = """
+Work only in this worktree. Commit on the current branch.
+Never checkout or push main/master. Never force-push.
+Do not modify secrets, credentials, or .mm/state.
+Prefer minimal diffs. Run existing tests if available.
+When done: ensure changes are committed; do not merge the PR.
+Do not delete other UserReport checklist items.
+This is an Avalonia/.NET 8 BatteryHUD overlay app.
+"""
+
+[hooks]
+install_pre_push = true
+install_post_commit = false
+
+[notify]
+on_job_start = true
+on_pr_created = true

@@ -92,6 +92,30 @@ Views/           Overlay HUD + device picker
 
 The repository is still named `XboxControllerBatteryLifeDisplay` for history; the app product is **BatteryHUD**.
 
+## Maintenance Monkey
+
+This branch includes [Maintenance Monkey](https://github.com/LanceCoolie2018/maintenance-monkey) so the Pi can watch for issues and open fix PRs.
+
+| What | Where |
+|------|--------|
+| Your fix requests | `UserReport.md` — unchecked `- [ ]` items become Grok jobs |
+| App error log | `logs/batteryhud.log` (created at runtime by `FileLog`) |
+| Config | `mm.toml` |
+
+**Laptop (you):** run BatteryHUD as usual. Edit `UserReport.md`, commit, push to `Grok`. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
+
+**Pi (daemon):**
+
+```bash
+cd /path/to/XboxControllerBatteryLifeDisplay
+git checkout Grok && git pull
+export PYTHONPATH="$PWD"
+python3 -m maintenance_monkey start
+# or: python3 -m maintenance_monkey install-systemd
+```
+
+Fixes land as `grok/fix-*` branches + PRs into **master** for you to review.
+
 ## License
 
 Personal project — use and modify freely.

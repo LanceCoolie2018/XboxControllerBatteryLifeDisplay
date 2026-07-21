@@ -1,0 +1,8 @@
+# Known bug signatures matched against live log lines (status: open).
+bugs:
+  - id: BAT-LOG-SMOKE
+    title: FileLog error lines (placeholder — replace with real signatures)
+    status: ignored
+    symptoms:
+      - "REPLACE_WITH_REAL_SIGNATURE"
+    notes: "Set status to open and real symptoms when you have a recurring crash."
