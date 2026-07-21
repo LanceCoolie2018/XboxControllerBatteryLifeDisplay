@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from maintenance_monkey.config import Config
+from maintenance_monkey.dispatch import git_workflow
 from maintenance_monkey.pipeline.context import collect_env, collect_repo_hints
 from maintenance_monkey.state import Incident, Job
 
@@ -12,6 +13,8 @@ from maintenance_monkey.state import Incident, Job
 def build_prompt(cfg: Config, incident: Incident, job: Job, branch: str) -> str:
     hints = collect_repo_hints(cfg.project.root)
     env = collect_env()
+    work = branch or git_workflow.work_branch(cfg)
+    base = cfg.project.default_branch or "main"
     source_note = {
         "user_report": "This came from the project's UserReport.md checklist.",
         "log_stack": "This came from a stack trace in application logs.",
@@ -25,17 +28,18 @@ def build_prompt(cfg: Config, incident: Incident, job: Job, branch: str) -> str:
 
     return f"""# Maintenance Monkey fix job
 
-You are running unattended in a **git worktree** on branch `{branch}`.
+You are running unattended in a **git worktree** whose commits will be pushed
+to the single shared branch **`{work}`** (not a per-bug branch).
 Project: **{cfg.project.name}**
-Base branch for the eventual PR: **{cfg.project.default_branch or 'main'}**
+Merge target when the human is ready: **`{base}`** (you do not merge).
 
 ## Mission
 
 Investigate and fix the issue below. Make a minimal, correct change.
 Run existing tests if the project has them.
-Commit your changes on the current branch with a clear message.
-Do **not** merge to main/master. Do **not** force-push.
-Do **not** push yourself unless needed — the monkey may push after you exit.
+Commit your changes with a clear message including the job id when useful.
+Do **not** create new branches. Do **not** merge to main/master. Do **not** force-push.
+Do **not** push yourself — the monkey pushes to `{work}` after you exit.
 Leave other UserReport checklist items alone.
 
 {source_note}
@@ -64,7 +68,7 @@ Also see files under `.mm/incident/` in this worktree (if present).
 ## Done criteria
 
 1. Root cause addressed (or explain why not in the commit message).
-2. Changes committed on `{branch}`.
+2. Changes committed in this worktree.
 3. Summarize what you changed in your final response.
 """
 

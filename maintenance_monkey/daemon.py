@@ -50,16 +50,45 @@ class Daemon:
         signal.signal(signal.SIGTERM, self.request_stop)
 
         log.info("Maintenance Monkey started for %s", cfg.project.name)
-        # initial user report scan
+        # initial user report scan (with optional pull)
         if cfg.user_report.enabled:
             for msg in scan_user_report(cfg, self.state, trigger="daemon_start"):
                 log.info("%s", msg)
 
         self.process.start()
+        last_remote_poll = time.time()
+        remote_interval = float(cfg.user_report.remote_poll_seconds or 0)
 
         try:
             while not self._stop:
                 now = time.time()
+                # Periodic remote sync: laptop pushes to AssIsstant won't change
+                # local mtime until we pull. Without this, UserReport never updates.
+                if (
+                    cfg.user_report.enabled
+                    and remote_interval > 0
+                    and (now - last_remote_poll) >= remote_interval
+                ):
+                    last_remote_poll = now
+                    # Force pull even if pull_before_scan is false for local edits
+                    from maintenance_monkey.dispatch import git_workflow
+
+                    pull_msg = git_workflow.ff_pull(cfg)
+                    log.info("remote poll: %s", pull_msg)
+                    # Reset mtime baseline so local watcher doesn't double-fire
+                    ur_path = cfg.project.root / cfg.user_report.path
+                    if ur_path.is_file():
+                        try:
+                            self.user_report._mtime = ur_path.stat().st_mtime
+                            self.user_report._pending_since = None
+                        except OSError:
+                            pass
+                    for msg in scan_user_report(
+                        cfg, self.state, trigger="remote_poll"
+                    ):
+                        # scan may pull again if pull_before_scan — harmless
+                        log.info("%s", msg)
+
                 if self.logs:
                     for msg in self.logs.poll():
                         log.info("%s", msg)

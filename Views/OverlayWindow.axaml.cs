@@ -60,7 +60,7 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 320 : Width);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
         var h = (int)(double.IsNaN(Height) || Height <= 0 ? 88 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
