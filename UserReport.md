@@ -5,17 +5,16 @@
   - Unchecked items (- [ ]) are open work → Grok fix branch + PR.
   - Checked items (- [x]) are ignored.
   - Optional stable id: - [ ] [UR-short-id] description...
-  Commit + push (hooks installed) or save while the Pi daemon is running.
+  Each fix must be its own top-level checkbox line (not indented under another item).
+  Commit + push to Grok; Pi daemon pulls and queues.
 -->
 
 ## Open
 
-<!-- Add items you want fixed. Example for your first end-to-end test: -->
-- [ ] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
-  - disconnection does not register right away and falsly reconnects to the controller even when its still off
+- [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
+- [ ] [UR-disconnect] Disconnection does not register right away and falsely reconnects to the controller even when it is still off
 
 ## Notes
 
 - App logs go to `logs/batteryhud.log` (created at runtime by `FileLog`).
-- Run the app on your laptop as usual; leave this repo’s Grok branch tracking open on the Pi with `python -m maintenance_monkey start`.
 - After a fix merges, mark the box `[x]` so it does not re-queue.
