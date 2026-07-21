@@ -125,10 +125,9 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
         {
             return Array.Empty<BatteryDevice>();
         }
-        catch
-        {
-            // WMI glitch — return empty so monitor keeps sticky cache
-        }
+        // Let other WMI failures (ManagementException "Generic failure", etc.)
+        // propagate so BatteryMonitorService can keep sticky presence/% instead
+        // of treating an empty list as "everything disconnected".
 
         return results
             .GroupBy(d => d.StableKey, StringComparer.OrdinalIgnoreCase)
