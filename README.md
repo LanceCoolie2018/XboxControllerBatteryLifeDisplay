@@ -20,6 +20,7 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **Choose + switch anytime** — device picker, selection remembered by stable key
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
 - **Drag to position**; remembers window placement
+- **Bug button** — appends an open checklist item to `UserReport.md` (no hand-editing)
 
 ## Battery % caveats
 
@@ -102,7 +103,7 @@ This branch includes [Maintenance Monkey](https://github.com/LanceCoolie2018/mai
 | App error log | `logs/batteryhud.log` (created at runtime by `FileLog`) |
 | Config | `mm.toml` |
 
-**Laptop (you):** run BatteryHUD as usual. Edit `UserReport.md`, commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
+**Laptop (you):** run BatteryHUD as usual. Use the HUD **Bug** button (or edit `UserReport.md` by hand), commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
 
 **Pi (daemon):**
 

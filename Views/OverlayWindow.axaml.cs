@@ -60,7 +60,7 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 220 : Width);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 248 : Width);
         var h = (int)(double.IsNaN(Height) || Height <= 0 ? 58 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
@@ -181,12 +181,22 @@ public partial class OverlayWindow : Window
         Close();
     }
 
+    private async void OnBugClick(object? sender, RoutedEventArgs e)
+    {
+        var dlg = new BugReportWindow
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        await dlg.ShowDialog<bool?>(this);
+    }
+
     private static bool IsOverButton(Visual? source, Button button) =>
         source is not null && (source == button || button.IsVisualAncestorOf(source));
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Source is Visual v && (IsOverButton(v, SwitchButton) || IsOverButton(v, ExitButton)))
+        if (e.Source is Visual v &&
+            (IsOverButton(v, SwitchButton) || IsOverButton(v, BugButton) || IsOverButton(v, ExitButton)))
             return;
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
