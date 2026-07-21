@@ -466,7 +466,32 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_stop)
 
     s = sub.add_parser("status", help="Show incidents and jobs", parents=[common])
+    s.add_argument(
+        "-w",
+        "--watch",
+        action="store_true",
+        help="Live dashboard (same as 'dashboard')",
+    )
+    s.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Refresh seconds when using --watch (default 2)",
+    )
     s.set_defaults(func=cmd_status)
+
+    s = sub.add_parser(
+        "dashboard",
+        help="Live status terminal for Pi desktop / dashboard",
+        parents=[common],
+    )
+    s.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Refresh seconds (default 2)",
+    )
+    s.set_defaults(func=cmd_dashboard)
 
     s = sub.add_parser("user-report", help="UserReport commands", parents=[common])
     ur = s.add_subparsers(dest="ur_cmd", required=True)
