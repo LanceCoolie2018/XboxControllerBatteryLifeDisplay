@@ -83,6 +83,16 @@ class Daemon:
                             self.user_report._pending_since = None
                         except OSError:
                             pass
+                    # Clear Ready-for-Review when human pushes "task … complete"
+                    try:
+                        from maintenance_monkey.pipeline.acknowledge import (
+                            process_task_complete_commits,
+                        )
+
+                        for msg in process_task_complete_commits(cfg, self.state):
+                            log.info("%s", msg)
+                    except Exception:
+                        log.exception("task-complete ack scan failed")
                     for msg in scan_user_report(
                         cfg, self.state, trigger="remote_poll"
                     ):
