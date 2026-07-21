@@ -23,7 +23,7 @@ incident_on_crash = true
 enabled = true
 path = "UserReport.md"
 debounce_seconds = 2
-# On the Pi: pull latest Grok branch before scanning (laptop edits via push)
+# On the Pi: pull latest AssIsstant branch before scanning (laptop edits via push)
 pull_before_scan = true
 auto_check_on_pr = false
 
@@ -52,7 +52,7 @@ max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300
 worktree_parent = ".."
-branch_prefix = "grok/fix-"
+branch_prefix = "AssIsstant/fix-"
 push = true
 create_pr = true
 # Set true first if you only want prompts/worktrees without calling Grok

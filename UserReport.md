@@ -2,11 +2,11 @@
 
 <!--
   Maintenance Monkey reads this file.
-  - Unchecked items (- [ ]) are open work → Grok fix branch + PR.
+  - Unchecked items (- [ ]) are open work → AssIsstant/fix-* branch + PR.
   - Checked items (- [x]) are ignored.
   - Optional stable id: - [ ] [UR-short-id] description...
   Each fix must be its own top-level checkbox line (not indented under another item).
-  Commit + push to Grok; Pi daemon pulls and queues.
+  Commit + push to AssIsstant; Pi daemon pulls and queues.
 -->
 
 ## Open

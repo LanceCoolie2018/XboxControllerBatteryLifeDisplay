@@ -98,23 +98,23 @@ This branch includes [Maintenance Monkey](https://github.com/LanceCoolie2018/mai
 
 | What | Where |
 |------|--------|
-| Your fix requests | `UserReport.md` — unchecked `- [ ]` items become Grok jobs |
+| Your fix requests | `UserReport.md` — unchecked `- [ ]` items become AssIsstant jobs |
 | App error log | `logs/batteryhud.log` (created at runtime by `FileLog`) |
 | Config | `mm.toml` |
 
-**Laptop (you):** run BatteryHUD as usual. Edit `UserReport.md`, commit, push to `Grok`. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
+**Laptop (you):** run BatteryHUD as usual. Edit `UserReport.md`, commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
 
 **Pi (daemon):**
 
 ```bash
 cd /path/to/XboxControllerBatteryLifeDisplay
-git checkout Grok && git pull
+git checkout AssIsstant && git pull
 export PYTHONPATH="$PWD"
 python3 -m maintenance_monkey start
 # or: python3 -m maintenance_monkey install-systemd
 ```
 
-Fixes land as `grok/fix-*` branches + PRs into **master** for you to review.
+Fixes land as `AssIsstant/fix-*` branches + PRs into **master** for you to review.
 
 ## License
 
