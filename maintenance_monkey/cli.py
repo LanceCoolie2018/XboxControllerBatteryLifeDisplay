@@ -17,6 +17,7 @@ from maintenance_monkey.dispatch import git_workflow
 from maintenance_monkey.dispatch.grok_runner import GrokRunner
 from maintenance_monkey.pipeline.fingerprint import fingerprint_text
 from maintenance_monkey.pipeline.queue import enqueue_incident
+from maintenance_monkey.dashboard import run_dashboard
 from maintenance_monkey.sensors.user_report import scan_user_report
 from maintenance_monkey.state import State
 
@@ -196,12 +197,19 @@ def cmd_stop(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     cfg, state = _load(args)
+    if getattr(args, "watch", False):
+        return run_dashboard(cfg, state, interval=float(args.interval))
     print(f"project: {cfg.project.name}")
     print(f"root: {cfg.project.root}")
     print(f"default_branch: {cfg.project.default_branch}")
     running = cfg.pidfile.is_file()
     if running:
-        print(f"daemon: running pid={cfg.pidfile.read_text().strip()}")
+        try:
+            pid = int(cfg.pidfile.read_text().strip())
+            os.kill(pid, 0)
+            print(f"daemon: running pid={pid}")
+        except (OSError, ValueError):
+            print("daemon: stopped (stale pidfile)")
     else:
         print("daemon: stopped")
     print("\nIncidents (recent):")
@@ -213,6 +221,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         err = f" err={job.error[:40]}" if job.error else ""
         print(f"  {job.id} {job.status} branch={job.branch or '-'}{pr}{err}")
     return 0
+
+
+def cmd_dashboard(args: argparse.Namespace) -> int:
+    """Live-updating terminal panel for the Pi desktop."""
+    cfg, state = _load(args)
+    return run_dashboard(cfg, state, interval=float(args.interval))
 
 
 def cmd_user_report(args: argparse.Namespace) -> int:
