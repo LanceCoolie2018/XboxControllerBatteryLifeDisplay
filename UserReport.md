@@ -15,8 +15,9 @@
 - [ ] [UR-disconnect] Disconnection does not register, still not getting a positive connection and disconnection status
 - [x] [UR-Closing] needs an exit button to close the app
 - [x] [UR-spacing] app is now too wide can we shrink it a little
-- [ ] Event Type Moniker	Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") Hyperlink: Activate Historical Debugging	483.57s		[31732] Worker Thread 
-- [ ] Event Type Moniker	Exception thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") Exception thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") Hyperlink: Activate Historical Debugging	621.36s		[32440] Worker Thread 
+- [x] Event Type Moniker	Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") — fixed: skip-list devices that fail GetDeviceProperties; light polls only re-probe known battery devices
+- [x] Event Type Moniker	Exception thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") — same root cause as above (WMI GetDeviceProperties on unsupported PnP devices)
+
 
 
 
