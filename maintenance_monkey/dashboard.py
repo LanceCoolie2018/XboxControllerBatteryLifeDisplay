@@ -272,10 +272,20 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     )
     lines.append("")
 
+    # Drop finished items whose fix branch was deleted (post-merge cleanup)
+    archive_done_jobs_without_branches(cfg, state)
+
     jobs = state.list_jobs(40)
     active = [j for j in jobs if j.status in ("queued", "running", "pushing")]
-    # Done with a PR URL = waiting for you to review/merge
-    review = [j for j in jobs if j.status == "done" and j.pr_url]
+    remote = _remote_heads(cfg.project.root)
+    # Done with a PR URL and branch still present = waiting for review
+    review = [
+        j
+        for j in jobs
+        if j.status == "done"
+        and j.pr_url
+        and _branch_still_present(cfg.project.root, j.branch, remote)
+    ]
     failed = [j for j in jobs if j.status == "failed"]
 
     # —— ACTIVE WORK ——
@@ -297,7 +307,9 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     # —— READY FOR REVIEW ——
     lines.append(_box_title("READY FOR REVIEW", width))
     if not review:
-        lines.append(_c(DIM, "  (no open PRs from the monkey yet)"))
+        lines.append(
+            _c(DIM, "  (none — merge & delete fix branches to clear items here)")
+        )
     else:
         for j in review[:12]:
             title = _job_title(state, j, 55)
@@ -333,7 +345,7 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     lines.append(
         _c(
             DIM,
-            "  merge PRs on GitHub · mark [x] in UserReport after merge · push AssIsstant",
+            "  merge PRs · delete fix branches to clear Ready for Review · [x] UserReport · push AssIsstant",
         )
     )
     return "\n".join(lines) + "\n"
