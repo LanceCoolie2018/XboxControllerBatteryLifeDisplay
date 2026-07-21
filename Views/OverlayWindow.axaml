@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BatteryHUD.Views.OverlayWindow"
+        Title="BatteryHUD"
+        Width="280" Height="88"
+        MinWidth="200" MinHeight="72"
+        CanResize="False"
+        SystemDecorations="None"
+        Topmost="True"
+        ShowInTaskbar="True"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        WindowStartupLocation="Manual"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="0">
+
+  <Border x:Name="RootBorder"
+          Background="#CC1A1A1A"
+          CornerRadius="12"
+          BorderBrush="#55FFFFFF"
+          BorderThickness="1"
+          Padding="14,10"
+          PointerPressed="OnPointerPressed"
+          PointerMoved="OnPointerMoved"
+          PointerReleased="OnPointerReleased">
+    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+      <TextBlock x:Name="PercentText"
+                 Grid.Row="0" Grid.Column="0"
+                 Text="--%"
+                 FontSize="28"
+                 FontWeight="Bold"
+                 Foreground="#00E676"
+                 VerticalAlignment="Center" />
+
+      <Button x:Name="SwitchButton"
+              Grid.Row="0" Grid.Column="1"
+              Content="Switch"
+              Margin="8,0,0,0"
+              Padding="10,4"
+              VerticalAlignment="Center"
+              Click="OnSwitchClick"
+              ToolTip.Tip="Choose which battery-powered device to watch" />
+
+      <TextBlock x:Name="DeviceText"
+                 Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                 Text="No device selected"
+                 FontSize="12"
+                 Foreground="#CCFFFFFF"
+                 TextTrimming="CharacterEllipsis"
+                 Margin="0,2,0,0"
+                 ToolTip.Tip="Click Switch to pick a controller, mouse, or any battery device" />
+
+      <TextBlock x:Name="HintText"
+                 Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                 Text="Drag to move · built for mid-game glances"
+                 FontSize="10"
+                 Foreground="#88FFFFFF"
+                 Margin="0,4,0,0" />
+    </Grid>
+  </Border>
+</Window>

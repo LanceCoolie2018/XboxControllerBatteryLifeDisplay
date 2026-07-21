@@ -1,17 +1,30 @@
-namespace XboxControllerBatteryLifeDisplay
+using System;
+using Avalonia;
+using BatteryHUD.Services;
+
+namespace BatteryHUD;
+
+internal static class Program
 {
-    internal static class Program
+    [STAThread]
+    public static void Main(string[] args)
     {
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
-        [STAThread]
-        static void Main()
+        // File logging for Maintenance Monkey (logs/batteryhud.log)
+        FileLog.Initialize();
+        try
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
-            ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            FileLog.Error("Fatal startup exception", ex);
+            throw;
         }
     }
+
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .LogToTrace();
 }
