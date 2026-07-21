@@ -35,11 +35,17 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
             }
         }
 
-        // Addresses BlueZ (etc.) reports as disconnected — used to veto ghosts
-        // whose StableKey is name-based and would not merge with addr: keys.
+        // Addresses / names BlueZ (etc.) reports as disconnected — used to veto
+        // ghosts whose StableKey is name-based and would not merge with addr: keys
+        // (sysfs often has % + is-present but no MAC).
         var offlineAddresses = new HashSet<string>(
             all.Where(d => !d.IsPresent && !string.IsNullOrWhiteSpace(d.Address))
                .Select(d => NormalizeAddress(d.Address!)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var offlineNames = new HashSet<string>(
+            all.Where(d => !d.IsPresent && !string.IsNullOrWhiteSpace(d.Name))
+               .Select(d => NormalizeName(d.Name)),
             StringComparer.OrdinalIgnoreCase);
 
         // Keep null-% offline markers (BlueZ paired-but-disconnected) in the
@@ -51,12 +57,20 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
             .Where(d => d.Percent is not null)
             .Select(d =>
             {
-                if (d.IsPresent &&
-                    !string.IsNullOrWhiteSpace(d.Address) &&
+                if (!d.IsPresent)
+                    return d;
+
+                if (!string.IsNullOrWhiteSpace(d.Address) &&
                     offlineAddresses.Contains(NormalizeAddress(d.Address!)))
                 {
                     return d with { IsPresent = false, IsCharging = false };
                 }
+
+                if (offlineNames.Contains(NormalizeName(d.Name)))
+                {
+                    return d with { IsPresent = false, IsCharging = false };
+                }
+
                 return d;
             })
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
@@ -68,6 +82,9 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
                .Replace("-", "", StringComparison.Ordinal)
                .Replace("_", "", StringComparison.Ordinal)
                .ToUpperInvariant();
+
+    private static string NormalizeName(string name) =>
+        name.Trim().ToLowerInvariant();
 
     private static BatteryDevice MergeGroup(IGrouping<string, BatteryDevice> group)
     {

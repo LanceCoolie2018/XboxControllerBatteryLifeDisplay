@@ -133,15 +133,16 @@ public partial class OverlayWindow : Window
 
         var kind = device.Kind is null ? "" : $" · {device.Kind}";
         var charge = device.IsCharging ? " · charging" : "";
-        var offline = device.IsPresent ? "" : " · offline";
-        DeviceText.Text = $"{device.Name}{kind}{charge}{offline}";
+        // Explicit connect/disconnect wording (not only the absence of "offline")
+        var link = device.IsPresent ? " · connected" : " · disconnected";
+        DeviceText.Text = $"{device.Name}{kind}{charge}{link}";
 
         if (!device.IsPresent)
-            HintText.Text = "Link lost — keeping last reading; will refresh on reconnect";
+            HintText.Text = "Disconnected — keeping last reading; will refresh on reconnect";
         else if (device.Percent is int pct && pct <= low)
             HintText.Text = "Low battery — good time to swap before a fight";
         else
-            HintText.Text = "Drag to move · Switch or Exit anytime";
+            HintText.Text = "Connected · drag to move · Switch or Exit anytime";
     }
 
     private async void OnSwitchClick(object? sender, RoutedEventArgs e)

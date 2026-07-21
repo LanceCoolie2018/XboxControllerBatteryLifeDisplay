@@ -7,18 +7,21 @@ namespace BatteryHUD.Services;
 /// Only devices with a reported battery % are listed.
 /// Keeps recently-seen (with %) devices through a short grace window so
 /// flaky BT/WMI polls don't blank the HUD mid-game.
-/// Disconnects on the first miss / IsPresent=false; reconnects only after
-/// consecutive present polls so stale stack ghosts don't flap "online".
+/// Disconnects on the first successful miss / IsPresent=false; reconnects
+/// only after consecutive present polls so stale stack ghosts don't flap
+/// "online". Provider hard-failures leave presence unchanged so WMI blips
+/// cannot wipe a positive connection or force a false disconnect.
 /// </summary>
 public sealed class BatteryMonitorService : IDisposable
 {
     /// <summary>
     /// How many consecutive polls must report the device present before we
-    /// flip offline → online (or accept a first sighting as online).
-    /// One poll is enough to go offline.
-    /// At the default 3s interval this is ~9s of stable presence.
+    /// flip offline → online after a real disconnect.
+    /// First sightings trust the provider so a fresh connect shows immediately.
+    /// One successful poll is enough to go offline.
+    /// At the default 3s interval this is ~6s of stable presence to reconnect.
     /// </summary>
-    private const int ReconnectConfirmPolls = 3;
+    private const int ReconnectConfirmPolls = 2;
 
     private readonly IBatteryDeviceProvider _provider;
     private readonly object _gate = new();
@@ -115,21 +118,25 @@ public sealed class BatteryMonitorService : IDisposable
     public void Refresh()
     {
         List<BatteryDevice> snapshot;
+        bool providerHardFail;
         try
         {
             // Hard filter: never track devices without a %
             snapshot = _provider.GetDevices()
                 .Where(d => d.Percent is not null)
                 .ToList();
+            providerHardFail = false;
         }
         catch
         {
-            // Provider failed hard — keep previous list, just age it
+            // Provider threw (e.g. WMI ManagementException) — keep prior presence/%.
+            // Do not treat this as a disconnect; that blocked positive connection
+            // status whenever the stack blipped.
+            providerHardFail = true;
             snapshot = [];
         }
 
         var now = DateTimeOffset.UtcNow;
-        var providerFailedEmpty = snapshot.Count == 0;
 
         lock (_gate)
         {
@@ -140,9 +147,13 @@ public sealed class BatteryMonitorService : IDisposable
                     _tracked.Remove(kv.Key);
             }
 
-            if (providerFailedEmpty && _tracked.Count > 0)
+            if (providerHardFail)
             {
-                // Don't wipe the list on a blank poll (common BT/WMI blip)
+                // Sticky: leave IsPresent / PresentStreak / LastSeen alone
+            }
+            else if (snapshot.Count == 0 && _tracked.Count > 0)
+            {
+                // Successful empty poll: every tracked device is gone → disconnect now
                 foreach (var t in _tracked.Values)
                     MarkAbsent(t);
                 PruneExpired(now);
@@ -190,20 +201,15 @@ public sealed class BatteryMonitorService : IDisposable
                         }
                         else
                         {
-                            // First sighting: still require confirm polls before "online".
-                            // After grace prune, a single BT/WMI ghost would otherwise
-                            // reappear as instantly connected while the pad is still off.
-                            var tracked = new TrackedDevice
+                            // First sighting: trust provider presence so connect shows
+                            // immediately. Reconnect-after-disconnect still uses
+                            // PresentStreak confirmation (false online ghosts).
+                            _tracked[key] = new TrackedDevice
                             {
-                                Device = device with { IsPresent = false },
+                                Device = device,
                                 LastSeen = now,
-                                PresentStreak = 0
+                                PresentStreak = device.IsPresent ? ReconnectConfirmPolls : 0
                             };
-                            if (device.IsPresent)
-                                ApplyObservation(tracked, device, now);
-                            else
-                                tracked.Device = device;
-                            _tracked[key] = tracked;
                         }
                     }
                 }
