@@ -12,6 +12,7 @@
 
 <!-- Add items you want fixed. Example for your first end-to-end test: -->
 - [ ] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
+  - disconnection does not register right away and falsly reconnects to the controller even when its still off
 
 ## Notes
 
