@@ -128,6 +128,93 @@ def _short_pr(url: str) -> str:
     return url.replace("https://github.com/", "")
 
 
+# Cache remote heads so we don't hit the network every 2s refresh
+_remote_heads_cache: tuple[float, set[str]] | None = None
+_REMOTE_HEADS_TTL = 20.0
+
+
+def _remote_heads(root: Path) -> set[str]:
+    """Branch names currently on origin (e.g. AssIsstant-fix-abc)."""
+    global _remote_heads_cache
+    now = time.time()
+    if _remote_heads_cache and (now - _remote_heads_cache[0]) < _REMOTE_HEADS_TTL:
+        return _remote_heads_cache[1]
+    heads: set[str] = set()
+    try:
+        r = subprocess.run(
+            ["git", "ls-remote", "--heads", "origin"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if r.returncode == 0 and r.stdout:
+            for line in r.stdout.splitlines():
+                # <sha>\trefs/heads/<name>
+                parts = line.split()
+                if len(parts) >= 2 and parts[1].startswith("refs/heads/"):
+                    heads.add(parts[1][len("refs/heads/") :])
+    except (OSError, subprocess.TimeoutExpired):
+        # Fall back to previous cache if any
+        if _remote_heads_cache:
+            return _remote_heads_cache[1]
+    _remote_heads_cache = (now, heads)
+    return heads
+
+
+def _local_heads(root: Path) -> set[str]:
+    try:
+        r = subprocess.run(
+            ["git", "branch", "--format=%(refname:short)"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if r.returncode != 0:
+            return set()
+        return {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+
+
+def _branch_still_present(root: Path, branch: str | None, remote: set[str]) -> bool:
+    """True if fix branch still exists on origin (or locally if remote list empty)."""
+    if not branch:
+        return False
+    if remote:
+        return branch in remote
+    # Offline / ls-remote failed: use local branches only
+    return branch in _local_heads(root)
+
+
+def archive_done_jobs_without_branches(cfg: Config, state: State) -> int:
+    """Mark done+PR jobs as archived when their fix branch is gone.
+
+    Returns number of jobs archived. Keeps Ready for Review in sync with
+    deleted remote branches after you merge and delete.
+    """
+    remote = _remote_heads(cfg.project.root)
+    if not remote and not _local_heads(cfg.project.root):
+        return 0
+    n = 0
+    for job in state.list_jobs(100):
+        if job.status != "done" or not job.pr_url:
+            continue
+        if _branch_still_present(cfg.project.root, job.branch, remote):
+            continue
+        state.update_job(
+            job.id,
+            status="archived",
+            error=None,
+            meta={**(job.meta or {}), "archived_reason": "branch_deleted"},
+        )
+        n += 1
+    return n
+
+
 def _user_report_open(cfg: Config) -> list[str]:
     path = cfg.project.root / cfg.user_report.path
     if not path.is_file():

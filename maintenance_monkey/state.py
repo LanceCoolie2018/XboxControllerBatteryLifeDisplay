@@ -262,7 +262,7 @@ class State:
         values.append(job_id)
         with self._conn() as conn:
             conn.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", values)
-            if fields.get("status") in ("done", "failed", "cancelled"):
+            if fields.get("status") in ("done", "failed", "cancelled", "archived"):
                 conn.execute(
                     """
                     UPDATE fingerprints SET open_job_id = NULL
