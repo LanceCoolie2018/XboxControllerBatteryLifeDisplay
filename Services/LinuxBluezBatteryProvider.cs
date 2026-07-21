@@ -23,10 +23,14 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
         if (devices.Count == 0)
             devices.AddRange(FromBluetoothctl());
 
+        // Keep null-% offline markers; Composite drops them after presence merge.
         return devices
-            .Where(d => d.Percent is not null)
+            .Where(d => d.Percent is not null || !d.IsPresent)
             .GroupBy(d => d.StableKey)
-            .Select(g => g.OrderByDescending(d => d.IsPresent).First())
+            .Select(g => g
+                .OrderByDescending(d => d.Percent.HasValue)
+                .ThenByDescending(d => d.IsPresent)
+                .First())
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -74,6 +78,27 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
                     percent = GetByteAsInt(child, "org.bluez.Battery1", "Percentage");
                     if (percent is not null) break;
                 }
+            }
+
+            // No % and not connected: still emit an offline marker when paired so
+            // Composite can force the StableKey offline while UPower/sysfs keep a
+            // ghost percentage after the radio link is gone.
+            if (percent is null && connected != true)
+            {
+                if (paired != true || string.IsNullOrWhiteSpace(address))
+                    continue;
+
+                yield return new BatteryDevice
+                {
+                    Id = path,
+                    Name = name!.Trim(),
+                    Kind = InferKind(name, icon),
+                    Percent = null,
+                    IsPresent = false,
+                    Address = address,
+                    VendorHint = null
+                };
+                continue;
             }
 
             if (percent is null)
@@ -135,6 +160,22 @@ public sealed partial class LinuxBluezBatteryProvider : IBatteryDeviceProvider
 
             if (!connected && !paired)
                 continue;
+
+            // Offline marker for composite (same rationale as FromBusctl)
+            if (percent is null && !connected)
+            {
+                yield return new BatteryDevice
+                {
+                    Id = $"bt:{address}",
+                    Name = name.Trim(),
+                    Kind = InferKind(name, icon),
+                    Percent = null,
+                    IsPresent = false,
+                    Address = address
+                };
+                continue;
+            }
+
             if (percent is null)
                 continue;
 

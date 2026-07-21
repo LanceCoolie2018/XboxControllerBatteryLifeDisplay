@@ -5,6 +5,8 @@ namespace BatteryHUD.Services;
 /// <summary>
 /// Merges several providers and de-dupes by StableKey (address/name).
 /// Prefers entries that have a battery percentage.
+/// Presence is consensus (offline wins) so a BlueZ disconnect is not
+/// masked by stale UPower/sysfs "present" + cached %.
 /// </summary>
 public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
 {
@@ -33,34 +35,68 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
             }
         }
 
+        // Addresses BlueZ (etc.) reports as disconnected — used to veto ghosts
+        // whose StableKey is name-based and would not merge with addr: keys.
+        var offlineAddresses = new HashSet<string>(
+            all.Where(d => !d.IsPresent && !string.IsNullOrWhiteSpace(d.Address))
+               .Select(d => NormalizeAddress(d.Address!)),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Keep null-% offline markers (BlueZ paired-but-disconnected) in the
+        // group so they can veto stale UPower/sysfs "present" readings.
         return all
-            .Where(d => d.Percent is not null)
+            .Where(d => d.Percent is not null || !d.IsPresent)
             .GroupBy(d => d.StableKey, StringComparer.OrdinalIgnoreCase)
             .Select(MergeGroup)
             .Where(d => d.Percent is not null)
+            .Select(d =>
+            {
+                if (d.IsPresent &&
+                    !string.IsNullOrWhiteSpace(d.Address) &&
+                    offlineAddresses.Contains(NormalizeAddress(d.Address!)))
+                {
+                    return d with { IsPresent = false, IsCharging = false };
+                }
+                return d;
+            })
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
+    private static string NormalizeAddress(string address) =>
+        address.Replace(":", "", StringComparison.Ordinal)
+               .Replace("-", "", StringComparison.Ordinal)
+               .Replace("_", "", StringComparison.Ordinal)
+               .ToUpperInvariant();
+
     private static BatteryDevice MergeGroup(IGrouping<string, BatteryDevice> group)
     {
-        // Prefer: present + freshest percent
+        // Prefer a row that has a real % for display identity; offline markers
+        // only vote on presence.
         var best = group
-            .OrderByDescending(d => d.IsPresent)
+            .OrderByDescending(d => d.Percent.HasValue)
+            .ThenByDescending(d => d.IsPresent)
             .ThenByDescending(d => d.IsCharging)
             .ThenByDescending(d => d.Percent ?? -1)
             .First();
 
-        var anyPresent = group.Any(d => d.IsPresent);
+        // Offline wins: BlueZ Connected=false (including null-% markers) must not
+        // be overridden by stale UPower/sysfs is-present + cached %.
+        var isPresent = group.All(d => d.IsPresent);
         var percent = group.Select(d => d.Percent).FirstOrDefault(p => p.HasValue) ?? best.Percent;
-        var charging = group.Any(d => d.IsCharging);
+        var charging = isPresent && group.Any(d => d.IsCharging);
         var address = group.Select(d => d.Address).FirstOrDefault(a => !string.IsNullOrEmpty(a));
         var kind = group.Select(d => d.Kind).FirstOrDefault(k => !string.IsNullOrEmpty(k));
+        var name = group
+            .Where(d => d.Percent is not null)
+            .Select(d => d.Name)
+            .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? best.Name;
 
         return best with
         {
+            Name = name,
             Percent = percent,
-            IsPresent = anyPresent,
+            IsPresent = isPresent,
             IsCharging = charging,
             Address = address ?? best.Address,
             Kind = kind ?? best.Kind
