@@ -52,6 +52,9 @@ class UserReportConfig:
     debounce_seconds: float = 2.0
     pull_before_scan: bool = False
     auto_check_on_pr: bool = False
+    # How often the daemon fetches/pulls the current branch and re-scans
+    # UserReport for laptop pushes. 0 disables (local mtime watch only).
+    remote_poll_seconds: float = 30.0
 
 
 @dataclass
@@ -209,7 +212,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             max_concurrent_jobs=int(dispatch.get("max_concurrent_jobs", 1)),
             cooldown_seconds=int(dispatch.get("cooldown_seconds", 300)),
             worktree_parent=str(dispatch.get("worktree_parent") or ".."),
-            branch_prefix=str(dispatch.get("branch_prefix") or "AssIsstant/fix-"),
+            branch_prefix=str(dispatch.get("branch_prefix") or "AssIsstant-fix-"),
             push=bool(dispatch.get("push", True)),
             create_pr=bool(dispatch.get("create_pr", True)),
             dry_run=bool(dispatch.get("dry_run", False)),
@@ -278,7 +281,7 @@ max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300
 worktree_parent = ".."
-branch_prefix = "AssIsstant/fix-"
+branch_prefix = "AssIsstant-fix-"
 push = true
 create_pr = true
 dry_run = false
