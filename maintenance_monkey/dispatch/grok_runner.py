@@ -42,6 +42,15 @@ class GrokRunner:
             self.state.update_job(job.id, status="failed", error="incident missing")
             return f"job {job.id}: missing incident"
 
+        # Bail out if UserReport item was closed while this job waited
+        if incident.source == "user_report" and self._user_report_item_closed(incident):
+            self.state.update_job(
+                job.id,
+                status="cancelled",
+                error="UserReport item closed before run",
+            )
+            return f"job {job.id}: cancelled — UserReport item already closed"
+
         log.info("running job %s: %s", job.id, incident.title)
         self.state.update_job(job.id, status="running")
 
@@ -149,6 +158,21 @@ class GrokRunner:
             log.exception("job %s failed", job.id)
             self.state.update_job(job.id, status="failed", error=str(e))
             return f"job {job.id}: failed: {e}"
+
+    def _user_report_item_closed(self, incident: Incident) -> bool:
+        """True if the checklist item is no longer an open - [ ] line."""
+        from maintenance_monkey.sensors.user_report import open_items
+
+        path = self.cfg.project.root / self.cfg.user_report.path
+        if not path.is_file():
+            return False
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            opens, _ = open_items(text)
+        except OSError:
+            return False
+        open_fps = {i.fingerprint for i in opens}
+        return incident.fingerprint not in open_fps
 
     def _auto_check_user_report(self, incident: Incident, worktree: Path) -> str:
         """Mark the checklist item done in worktree UserReport.md if enabled."""

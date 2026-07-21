@@ -243,6 +243,47 @@ def clear_resolved_failures(cfg: Config, state: State) -> list[str]:
     return messages
 
 
+def cancel_closed_user_report_jobs(cfg: Config, state: State) -> list[str]:
+    """
+    Cancel queued/running/pushing UserReport jobs whose checklist item is
+    already [x] (or gone). Prevents working on issues that were closed.
+    """
+    from maintenance_monkey.sensors.user_report import open_items
+
+    messages: list[str] = []
+    ur_path = cfg.project.root / cfg.user_report.path
+    if not ur_path.is_file():
+        return messages
+    try:
+        text = ur_path.read_text(encoding="utf-8", errors="replace")
+        opens, _ = open_items(text)
+    except OSError as e:
+        return [f"cancel_closed: cannot read UserReport: {e}"]
+
+    open_fps = {i.fingerprint for i in opens}
+    for j in state.list_jobs(100):
+        if j.status not in ("queued", "running", "pushing"):
+            continue
+        if not j.fingerprint.startswith("userreport:"):
+            continue
+        if j.fingerprint in open_fps:
+            continue
+        state.update_job(
+            j.id,
+            status="cancelled",
+            error="UserReport item closed — cancelled stale job",
+            meta={
+                **(j.meta or {}),
+                "cancelled_reason": "user_report_item_closed",
+            },
+        )
+        messages.append(
+            f"cancelled job {j.id} ({j.fingerprint}): item no longer open"
+        )
+        log.info("%s", messages[-1])
+    return messages
+
+
 def archive_failed_for_fingerprint(state: State, fingerprint: str, *, by_job: str) -> int:
     """When a job succeeds, drop older failures for the same issue."""
     n = 0
