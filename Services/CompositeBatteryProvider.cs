@@ -60,21 +60,54 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
                 if (!d.IsPresent)
                     return d;
 
-                if (!string.IsNullOrWhiteSpace(d.Address) &&
-                    offlineAddresses.Contains(NormalizeAddress(d.Address!)))
-                {
+                if (IsVetoedOffline(d, offlineAddresses, offlineNames))
                     return d with { IsPresent = false, IsCharging = false };
-                }
-
-                if (offlineNames.Contains(NormalizeName(d.Name)))
-                {
-                    return d with { IsPresent = false, IsCharging = false };
-                }
 
                 return d;
             })
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static bool IsVetoedOffline(
+        BatteryDevice d,
+        HashSet<string> offlineAddresses,
+        HashSet<string> offlineNames)
+    {
+        if (!string.IsNullOrWhiteSpace(d.Address) &&
+            offlineAddresses.Contains(NormalizeAddress(d.Address!)))
+            return true;
+
+        // Address embedded only in Id (legacy sysfs without Address filled)
+        if (offlineAddresses.Count > 0 && !string.IsNullOrWhiteSpace(d.Id))
+        {
+            var idNorm = NormalizeAddress(d.Id);
+            foreach (var addr in offlineAddresses)
+            {
+                if (addr.Length >= 12 && idNorm.Contains(addr, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        if (offlineNames.Contains(NormalizeName(d.Name)))
+            return true;
+
+        // Fuzzy name: "Xbox Wireless Controller" vs "Wireless Controller" etc.
+        // Require a long substring so short names ("mouse") cannot veto unrelated devices.
+        var name = NormalizeName(d.Name);
+        if (name.Length >= 8)
+        {
+            foreach (var offline in offlineNames)
+            {
+                if (offline.Length < 8)
+                    continue;
+                if (name.Contains(offline, StringComparison.Ordinal) ||
+                    offline.Contains(name, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static string NormalizeAddress(string address) =>

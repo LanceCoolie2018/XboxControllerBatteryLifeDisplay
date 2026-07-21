@@ -73,7 +73,7 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
         try
         {
             var query = deepScan
-                ? @"SELECT Name, DeviceID, PNPDeviceID, Status, PNPClass FROM Win32_PnPEntity
+                ? @"SELECT Name, DeviceID, PNPDeviceID, Status, PNPClass, ConfigManagerErrorCode, Present FROM Win32_PnPEntity
                     WHERE Name IS NOT NULL AND (
                         PNPClass = 'Bluetooth' OR PNPClass = 'HIDClass' OR
                         PNPClass = 'Mouse' OR PNPClass = 'Keyboard' OR
@@ -84,7 +84,7 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                         Name LIKE '%Headset%' OR Name LIKE '%Mouse%' OR
                         Name LIKE '%Keyboard%'
                     )"
-                : @"SELECT Name, DeviceID, PNPDeviceID, Status, PNPClass FROM Win32_PnPEntity
+                : @"SELECT Name, DeviceID, PNPDeviceID, Status, PNPClass, ConfigManagerErrorCode, Present FROM Win32_PnPEntity
                     WHERE Name IS NOT NULL AND (
                         PNPClass = 'Bluetooth' OR PNPClass = 'HIDClass' OR
                         PNPClass = 'Mouse' OR PNPClass = 'Keyboard' OR
@@ -107,7 +107,24 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                     if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(deviceId))
                         continue;
 
-                    var isOk = string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase);
+                    // Status=OK alone is not enough: paired BT shells often stay OK with
+                    // a cached battery % after the controller is powered off.
+                    var statusOk = string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase);
+                    var cmError = 0u;
+                    try
+                    {
+                        if (obj["ConfigManagerErrorCode"] is not null)
+                            cmError = Convert.ToUInt32(obj["ConfigManagerErrorCode"]);
+                    }
+                    catch { /* ignore bad field */ }
+
+                    var pnpPresent = true;
+                    try
+                    {
+                        if (obj["Present"] is not null)
+                            pnpPresent = Convert.ToBoolean(obj["Present"]);
+                    }
+                    catch { /* ignore */ }
 
                     // Light poll: only re-read devices that already report a battery %.
                     // Deep scan: probe new candidates, but never re-hit the skip list
@@ -126,9 +143,10 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                             LooksLikePeripheral(name);
 
                     int? percent = null;
+                    bool? devNodeConnected = null;
                     if (shouldProbe)
                     {
-                        percent = TryReadBatteryPercent(obj);
+                        (percent, devNodeConnected) = TryReadBatteryAndConnection(obj);
                         if (percent is not null)
                         {
                             lock (_gate)
@@ -150,6 +168,13 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                     if (percent is null)
                         continue;
 
+                    // Presence: PnP working + no CM error + Present flag, and when
+                    // DEVPKEY_Device_IsConnected is available it must not be false
+                    // (stops false "connected" while battery % is still cached).
+                    var isPresent = statusOk && cmError == 0 && pnpPresent;
+                    if (devNodeConnected == false)
+                        isPresent = false;
+
                     var address = TryExtractBtAddress(deviceId!);
 
                     results.Add(new BatteryDevice
@@ -158,7 +183,7 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                         Name = name!.Trim(),
                         Kind = InferKind(name!, pnpClass),
                         Percent = percent,
-                        IsPresent = isOk,
+                        IsPresent = isPresent,
                         Address = address,
                         VendorHint = InferVendor(name!)
                     });
@@ -201,19 +226,46 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
             .ToList();
     }
 
+    /// <summary>
+    /// DEVPKEY_Device_IsConnected — false when the BT/HID link is down even if a
+    /// cached battery level property is still readable.
+    /// </summary>
+    private const string DeviceIsConnectedKey = "{83DA6326-97A6-4088-9453-A1923F573B29} 15";
+
     [SupportedOSPlatform("windows")]
-    private static int? TryReadBatteryPercent(System.Management.ManagementObject obj)
+    private static (int? Percent, bool? IsConnected) TryReadBatteryAndConnection(
+        System.Management.ManagementObject obj)
     {
         try
         {
             var outParams = obj.InvokeMethod("GetDeviceProperties", null, null);
             if (outParams?["deviceProperties"] is not System.Management.ManagementBaseObject[] properties)
-                return null;
+                return (null, null);
+
+            int? percent = null;
+            bool? isConnected = null;
 
             foreach (var prop in properties)
             {
                 var keyName = prop["KeyName"]?.ToString();
                 if (keyName is null) continue;
+
+                if (keyName.Equals(DeviceIsConnectedKey, StringComparison.OrdinalIgnoreCase) ||
+                    (keyName.Contains("IsConnected", StringComparison.OrdinalIgnoreCase) &&
+                     !keyName.Contains("Battery", StringComparison.OrdinalIgnoreCase)))
+                {
+                    try
+                    {
+                        var data = prop["Data"];
+                        if (data is bool b)
+                            isConnected = b;
+                        else if (data is not null)
+                            isConnected = Convert.ToBoolean(data);
+                    }
+                    catch { /* ignore */ }
+
+                    continue;
+                }
 
                 var isBatteryKey =
                     keyName.Equals(BluetoothBatteryLevelKey, StringComparison.OrdinalIgnoreCase) ||
@@ -221,19 +273,19 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                      (keyName.Contains("Level", StringComparison.OrdinalIgnoreCase) ||
                       keyName.Contains("Percent", StringComparison.OrdinalIgnoreCase)));
 
-                if (!isBatteryKey) continue;
+                if (!isBatteryKey || percent is not null) continue;
 
-                var data = prop["Data"];
-                if (data is null) continue;
+                var batteryData = prop["Data"];
+                if (batteryData is null) continue;
 
                 try
                 {
-                    var value = Convert.ToInt32(data);
+                    var value = Convert.ToInt32(batteryData);
                     if (value is >= 0 and <= 3 &&
                         keyName.Contains("Level", StringComparison.OrdinalIgnoreCase) &&
                         !keyName.Contains("Percent", StringComparison.OrdinalIgnoreCase))
                     {
-                        return value switch
+                        percent = value switch
                         {
                             0 => 5,
                             1 => 25,
@@ -242,9 +294,10 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                             _ => value
                         };
                     }
-
-                    if (value is >= 0 and <= 100)
-                        return value;
+                    else if (value is >= 0 and <= 100)
+                    {
+                        percent = value;
+                    }
                 }
                 catch
                 {
@@ -252,18 +305,18 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                 }
             }
 
-            // Invoke succeeded but no battery key — caller will skip future probes.
-            return null;
+            // Invoke succeeded; null percent → caller will skip future probes.
+            return (percent, isConnected);
         }
         catch (System.Management.ManagementException)
         {
             // Common: device does not support GetDeviceProperties → "Generic failure".
             // Caller blacklists the id so we do not re-throw every poll (VS first-chance spam).
-            return null;
+            return (null, null);
         }
         catch
         {
-            return null;
+            return (null, null);
         }
     }
 

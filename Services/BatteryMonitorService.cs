@@ -7,19 +7,19 @@ namespace BatteryHUD.Services;
 /// Only devices with a reported battery % are listed.
 /// Keeps recently-seen (with %) devices through a short grace window so
 /// flaky BT/WMI polls don't blank the HUD mid-game.
-/// Disconnects on the first successful miss / IsPresent=false; reconnects
-/// only after consecutive present polls so stale stack ghosts don't flap
-/// "online". Provider hard-failures leave presence unchanged so WMI blips
-/// cannot wipe a positive connection or force a false disconnect.
+/// Disconnects on the first successful miss / IsPresent=false; (re)connects
+/// only after consecutive present polls — including first sightings — so
+/// stale BT/WMI/sysfs ghosts cannot flap or stick "connected" while the
+/// controller is off. Provider hard-failures leave presence unchanged within
+/// the grace window so brief WMI blips do not force a false disconnect.
 /// </summary>
 public sealed class BatteryMonitorService : IDisposable
 {
     /// <summary>
     /// How many consecutive polls must report the device present before we
-    /// flip offline → online after a real disconnect.
-    /// First sightings trust the provider so a fresh connect shows immediately.
+    /// flip offline → online (including first sightings).
     /// One successful poll is enough to go offline.
-    /// At the default 3s interval this is ~6s of stable presence to reconnect.
+    /// At the default 3s interval this is ~6s of stable presence to (re)connect.
     /// </summary>
     private const int ReconnectConfirmPolls = 2;
 
@@ -129,9 +129,8 @@ public sealed class BatteryMonitorService : IDisposable
         }
         catch
         {
-            // Provider threw (e.g. WMI ManagementException) — keep prior presence/%.
-            // Do not treat this as a disconnect; that blocked positive connection
-            // status whenever the stack blipped.
+            // Provider threw (e.g. WMI ManagementException) — keep prior presence/%
+            // for a short window; do not treat a single throw as a disconnect.
             providerHardFail = true;
             snapshot = [];
         }
@@ -149,7 +148,16 @@ public sealed class BatteryMonitorService : IDisposable
 
             if (providerHardFail)
             {
-                // Sticky: leave IsPresent / PresentStreak / LastSeen alone
+                // Sticky only within grace from last confirmed presence.
+                // A long-lived WMI outage after a real power-off must not leave
+                // the HUD saying "connected" forever.
+                foreach (var t in _tracked.Values)
+                {
+                    if (t.Device.IsPresent && now - t.LastSeen > _grace)
+                        MarkAbsent(t);
+                }
+
+                PruneExpired(now);
             }
             else if (snapshot.Count == 0 && _tracked.Count > 0)
             {
@@ -201,15 +209,21 @@ public sealed class BatteryMonitorService : IDisposable
                         }
                         else
                         {
-                            // First sighting: trust provider presence so connect shows
-                            // immediately. Reconnect-after-disconnect still uses
-                            // PresentStreak confirmation (false online ghosts).
-                            _tracked[key] = new TrackedDevice
+                            // First sighting (or reappear after grace prune): never
+                            // trust a single present poll — WMI/UPower/sysfs often
+                            // keep a cached % + "present" while the pad is off.
+                            // Start offline and require ReconnectConfirmPolls.
+                            var tracked = new TrackedDevice
                             {
-                                Device = device,
-                                LastSeen = now,
-                                PresentStreak = device.IsPresent ? ReconnectConfirmPolls : 0
+                                Device = device with { IsPresent = false, IsCharging = false },
+                                // Unconfirmed ghosts must not look "freshly seen present"
+                                // or grace never expires while the pad stays off.
+                                LastSeen = now - _grace,
+                                PresentStreak = 0
                             };
+                            if (device.IsPresent)
+                                ApplyObservation(tracked, device, now);
+                            _tracked[key] = tracked;
                         }
                     }
                 }
