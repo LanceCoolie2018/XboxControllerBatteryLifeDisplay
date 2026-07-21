@@ -12,9 +12,13 @@
 ## Open
 
 - [x] [UR-test-readme] Add a short "Maintenance Monkey" section to README.md explaining UserReport.md and logs/batteryhud.log (how to report fixes and where errors are written)
-- [x] [UR-disconnect] Disconnection does not register right away and falsely reconnects to the controller even when it is still off
+- [ ] [UR-disconnect] Disconnection does not register, still not getting a positive connection and disconnection status
 - [x] [UR-Closing] needs an exit button to close the app
 - [x] [UR-spacing] app is now too wide can we shrink it a little
+- [ ] Event Type Moniker	Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") Exception caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") Hyperlink: Activate Historical Debugging	483.57s		[31732] Worker Thread 
+- [ ] Event Type Moniker	Exception thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") Exception thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") Hyperlink: Activate Historical Debugging	621.36s		[32440] Worker Thread 
+
+
 
 ## Notes
 
