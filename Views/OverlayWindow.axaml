@@ -31,7 +31,7 @@
                  Text="--%"
                  FontSize="22"
                  FontWeight="Bold"
-                 Foreground="#00E676"
+                 Foreground="#42A5F5"
                  VerticalAlignment="Center" />
 
       <StackPanel Grid.Row="0" Grid.Column="1"
