@@ -60,8 +60,8 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
-        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 88 : Height);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 220 : Width);
+        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 58 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
         // Multi-monitor setups (laptop docked vs undocked) often leave coords
@@ -122,27 +122,17 @@ public partial class OverlayWindow : Window
             PercentText.Text = "--";
             PercentText.Foreground = BatteryColors.ForPercent(null, low, true);
             DeviceText.Text = _monitor.Devices.Count == 0
-                ? $"No devices ({_monitor.PlatformName})"
-                : "Click Switch to choose a device";
-            HintText.Text = "Connect a controller, mouse, or BT peripheral";
+                ? "No devices"
+                : "No device selected";
             return;
         }
 
         PercentText.Text = device.Percent is int p ? $"{p}%" : "??%";
         PercentText.Foreground = BatteryColors.ForPercent(device.Percent, low, !device.IsPresent);
 
-        var kind = device.Kind is null ? "" : $" · {device.Kind}";
-        var charge = device.IsCharging ? " · charging" : "";
-        // Explicit connect/disconnect wording (not only the absence of "offline")
-        var link = device.IsPresent ? " · connected" : " · disconnected";
-        DeviceText.Text = $"{device.Name}{kind}{charge}{link}";
-
-        if (!device.IsPresent)
-            HintText.Text = "Disconnected — keeping last reading; will refresh on reconnect";
-        else if (device.Percent is int pct && pct <= low)
-            HintText.Text = "Low battery — good time to swap before a fight";
-        else
-            HintText.Text = "Connected · drag to move · Switch or Exit anytime";
+        // Compact: name + connection only (keeps footprint small for gameplay)
+        var link = device.IsPresent ? "connected" : "disconnected";
+        DeviceText.Text = $"{device.Name} · {link}";
     }
 
     private async void OnSwitchClick(object? sender, RoutedEventArgs e)

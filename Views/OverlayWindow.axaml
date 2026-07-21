@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="BatteryHUD.Views.OverlayWindow"
         Title="BatteryHUD"
-        Width="280" Height="88"
-        MinWidth="200" MinHeight="72"
+        Width="220" Height="58"
+        MinWidth="180" MinHeight="50"
         CanResize="False"
         SystemDecorations="None"
         Topmost="True"
@@ -17,54 +17,51 @@
 
   <Border x:Name="RootBorder"
           Background="#CC1A1A1A"
-          CornerRadius="12"
+          CornerRadius="10"
           BorderBrush="#55FFFFFF"
           BorderThickness="1"
-          Padding="12,10"
+          Padding="8,6"
           PointerPressed="OnPointerPressed"
           PointerMoved="OnPointerMoved"
-          PointerReleased="OnPointerReleased">
-    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+          PointerReleased="OnPointerReleased"
+          ToolTip.Tip="Drag to move · Switch or Exit anytime">
+    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
       <TextBlock x:Name="PercentText"
                  Grid.Row="0" Grid.Column="0"
                  Text="--%"
-                 FontSize="28"
+                 FontSize="22"
                  FontWeight="Bold"
                  Foreground="#00E676"
                  VerticalAlignment="Center" />
 
       <StackPanel Grid.Row="0" Grid.Column="1"
                   Orientation="Horizontal"
-                  Spacing="4"
-                  Margin="6,0,0,0"
+                  Spacing="3"
+                  Margin="4,0,0,0"
                   VerticalAlignment="Center">
         <Button x:Name="SwitchButton"
                 Content="Switch"
-                Padding="8,3"
+                Padding="6,2"
+                FontSize="11"
                 Click="OnSwitchClick"
                 ToolTip.Tip="Choose which battery-powered device to watch" />
         <Button x:Name="ExitButton"
                 Content="Exit"
-                Padding="8,3"
+                Padding="6,2"
+                FontSize="11"
                 Click="OnExitClick"
                 ToolTip.Tip="Close BatteryHUD" />
       </StackPanel>
 
+      <!-- Compact: device name + connected/disconnected only (no kind/charging/hints) -->
       <TextBlock x:Name="DeviceText"
                  Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                 Text="No device selected"
-                 FontSize="12"
+                 Text="No device"
+                 FontSize="10"
                  Foreground="#CCFFFFFF"
                  TextTrimming="CharacterEllipsis"
                  Margin="0,2,0,0"
                  ToolTip.Tip="Click Switch to pick a controller, mouse, or any battery device" />
-
-      <TextBlock x:Name="HintText"
-                 Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                 Text="Drag to move · Switch or Exit anytime"
-                 FontSize="10"
-                 Foreground="#88FFFFFF"
-                 Margin="0,4,0,0" />
     </Grid>
   </Border>
 </Window>
