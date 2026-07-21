@@ -18,6 +18,7 @@
 - [x] [UR-spacing] app is now too wide can we shrink it a little
 - [x] Event Type MonikerException caught: 'System.Management.ManagementException' in BatteryHUD.dll ("Generic failure ") — fixed: skip-list devices that fail GetDeviceProperties; light polls only re-probe known battery devices
 - [x] Event Type MonikerException thrown: 'System.Management.ManagementException' in System.Management.dll ("Generic failure ") — same root cause as above (WMI GetDeviceProperties on unsupported PnP devices)
+- [ ] still falsly indicating that the controller is connected when its not
 
 ## Notes
 
