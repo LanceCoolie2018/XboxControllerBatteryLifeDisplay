@@ -16,15 +16,16 @@
         ExtendClientAreaTitleBarHeightHint="0">
 
   <!--
-    3D hologram look: cyan glass plate + RGB-offset ghost digits + soft scan-line band.
+    3D hologram look: dark-red glass plate + gold labels + RGB-offset ghost digits + soft scan-line band.
+    Time digits use dark red (not bright white); HOLO TIME / date / close use crisp gold.
     Drag anywhere except the X button; position is saved.
   -->
   <Border x:Name="RootBorder"
-          Background="#33101828"
+          Background="#33141010"
           CornerRadius="12"
-          BorderBrush="#8840F0FF"
+          BorderBrush="#88C8A020"
           BorderThickness="1.5"
-          BoxShadow="0 0 18 2 #5540F0FF"
+          BoxShadow="0 0 18 2 #55A01828"
           Padding="14,10,14,12"
           PointerPressed="OnPointerPressed"
           PointerMoved="OnPointerMoved"
@@ -37,9 +38,9 @@
               Opacity="0.35">
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#5540F0FF" Offset="0" />
+            <GradientStop Color="#55C8A020" Offset="0" />
             <GradientStop Color="#00000000" Offset="0.45" />
-            <GradientStop Color="#3320A0FF" Offset="1" />
+            <GradientStop Color="#33801820" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
       </Border>
@@ -55,7 +56,7 @@
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
             <GradientStop Color="#00000000" Offset="0" />
-            <GradientStop Color="#AA80FFFF" Offset="0.5" />
+            <GradientStop Color="#AAE8C84A" Offset="0.5" />
             <GradientStop Color="#00000000" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
@@ -68,7 +69,7 @@
                      FontSize="9"
                      FontWeight="SemiBold"
                      LetterSpacing="2"
-                     Foreground="#99A0F0FF"
+                     Foreground="#E8C84A"
                      VerticalAlignment="Center" />
           <Button x:Name="CloseButton"
                   Grid.Column="1"
@@ -79,40 +80,40 @@
                   MinHeight="18"
                   Background="Transparent"
                   BorderThickness="0"
-                  Foreground="#CC80E0FF"
+                  Foreground="#E8C84A"
                   Click="OnCloseClick"
                   ToolTip.Tip="Close hologram clock" />
         </Grid>
 
-        <!-- Time: layered chromatic ghosts under sharp cyan digits -->
+        <!-- Time: layered chromatic ghosts under dark-red digits -->
         <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0">
-          <!-- Magenta ghost (depth left) -->
+          <!-- Deep crimson ghost (depth left) -->
           <TextBlock x:Name="TimeGhostMagenta"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#66FF40A0"
+                     Foreground="#66501018"
                      HorizontalAlignment="Center"
                      IsHitTestVisible="False"
                      Margin="-2,1,0,0" />
-          <!-- Cyan ghost (depth right) -->
+          <!-- Warm gold ghost (depth right) -->
           <TextBlock x:Name="TimeGhostCyan"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#6640FFFF"
+                     Foreground="#66C8A020"
                      HorizontalAlignment="Center"
                      IsHitTestVisible="False"
                      Margin="2,-1,0,0" />
-          <!-- Main hologram digits -->
+          <!-- Main hologram digits — dark red (not bright white) -->
           <TextBlock x:Name="TimeText"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#E0F0FFFF"
+                     Foreground="#8B1515"
                      HorizontalAlignment="Center" />
         </Grid>
 
@@ -122,7 +123,7 @@
                    Text=""
                    FontSize="11"
                    FontFamily="Consolas, Courier New, monospace"
-                   Foreground="#B080E8FF"
+                   Foreground="#F0C53A"
                    HorizontalAlignment="Center"
                    Margin="0,2,0,0" />
       </Grid>
