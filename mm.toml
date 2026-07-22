@@ -34,6 +34,15 @@ ignore = [
   '(?i)doesn.?t have a voice',
 ]
 
+# Customer Store/source reports filed as GitHub Issues (label customer-report).
+# Maintainer host only — requires `gh auth login`. App never embeds tokens.
+[watch.github_issues]
+enabled = true
+repo = "LanceCoolie2018/XboxControllerBatteryLifeDisplay"
+labels = ["customer-report"]
+state = "open"
+poll_seconds = 60
+
 [patterns]
 include = [
   '(?i)exception',

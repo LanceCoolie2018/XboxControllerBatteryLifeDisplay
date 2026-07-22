@@ -1,1 +1,1 @@
-"""Sensors: logs, process, user_report, known_bugs."""
+"""Sensors: logs, process, user_report, github_issues, known_bugs."""

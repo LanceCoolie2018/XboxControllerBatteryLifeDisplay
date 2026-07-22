@@ -62,6 +62,17 @@ class UserReportConfig:
 
 
 @dataclass
+class GitHubIssuesConfig:
+    """Poll public GitHub Issues labeled for customer reports (Pi/maintainer only)."""
+
+    enabled: bool = False
+    repo: str = "LanceCoolie2018/XboxControllerBatteryLifeDisplay"
+    labels: list[str] = field(default_factory=lambda: ["customer-report"])
+    state: str = "open"
+    poll_seconds: float = 60.0
+
+
+@dataclass
 class DispatchConfig:
     grok_bin: str = "grok"
     model: str = ""
@@ -108,6 +119,7 @@ class Config:
     patterns: PatternsConfig = field(default_factory=PatternsConfig)
     known_bugs: KnownBugsConfig = field(default_factory=KnownBugsConfig)
     user_report: UserReportConfig = field(default_factory=UserReportConfig)
+    github_issues: GitHubIssuesConfig = field(default_factory=GitHubIssuesConfig)
     dispatch: DispatchConfig = field(default_factory=DispatchConfig)
     hooks: HooksConfig = field(default_factory=HooksConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
@@ -171,6 +183,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
         logs = raw["watch"].get("logs") or {}
     process = _section(raw, "watch", "process")
     user_report = _section(raw, "watch", "user_report")
+    github_issues = _section(raw, "watch", "github_issues")
     patterns = _section(raw, "patterns")
     known = _section(raw, "known_bugs")
     dispatch = _section(raw, "dispatch")
@@ -213,6 +226,17 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             auto_check_on_pr=bool(user_report.get("auto_check_on_pr", True)),
             remote_poll_seconds=float(user_report.get("remote_poll_seconds", 30)),
             ignore=_as_list(user_report.get("ignore")),
+        ),
+        github_issues=GitHubIssuesConfig(
+            enabled=bool(github_issues.get("enabled", False)),
+            repo=str(
+                github_issues.get("repo")
+                or "LanceCoolie2018/XboxControllerBatteryLifeDisplay"
+            ),
+            labels=_as_list(github_issues.get("labels"))
+            or ["customer-report"],
+            state=str(github_issues.get("state") or "open"),
+            poll_seconds=float(github_issues.get("poll_seconds", 60)),
         ),
         dispatch=DispatchConfig(
             grok_bin=str(dispatch.get("grok_bin") or "grok"),

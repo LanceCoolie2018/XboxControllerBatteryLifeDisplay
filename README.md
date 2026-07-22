@@ -22,7 +22,7 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **Hologram clock** — **Time** opens a secondary cyan “3D hologram” clock you can drag to any screen
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
 - **Drag to position**; remembers window placement (per widget / clock)
-- **Bug button** — appends an open checklist item to `UserReport.md` (no hand-editing)
+- **Bug button** — opens a GitHub Issue report (version + log snippet); dev installs can also save locally
 
 ## Battery % caveats
 
@@ -99,30 +99,23 @@ Views/           Overlay HUD + device picker
 
 The repository is still named `XboxControllerBatteryLifeDisplay` for history; the app product is **BatteryHUD**.
 
-## Maintenance Monkey
+## Get BatteryHUD
 
-This branch includes [Maintenance Monkey](https://github.com/LanceCoolie2018/maintenance-monkey) so the Pi can watch for issues and open fix PRs.
+| Channel | Price | Notes |
+|---------|-------|--------|
+| **Microsoft Store** | **$4.99** | Easy install + updates (listing in progress). See `store/PARTNER_CENTER.md` for publisher setup. |
+| **This repo (source)** | Free | Build with .NET 8 if you prefer to install yourself. |
 
-| What | Where |
-|------|--------|
-| Your fix requests | `UserReport.md` — unchecked `- [ ]` items become AssIsstant jobs |
-| App error log | `logs/batteryhud.log` (created at runtime by `FileLog`) |
-| Config | `mm.toml` |
+## Report a bug
 
-**Laptop (you):** run BatteryHUD as usual. Use the HUD **Bug** button (or edit `UserReport.md` by hand), commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
+Use the HUD **Bug** button. On a normal / Store install it opens a **GitHub Issue** in your browser (label `customer-report`) with version and a short log snippet. No API keys are embedded in the app.
 
-**Pi (daemon):**
+Privacy details: [docs/privacy.md](docs/privacy.md).
 
-```bash
-cd /path/to/XboxControllerBatteryLifeDisplay
-git checkout AssIsstant && git pull
-export PYTHONPATH="$PWD"
-python3 -m maintenance_monkey start
-# or: python3 -m maintenance_monkey install-systemd
-```
+## Maintainer notes
 
-Fixes land as commits on **`AssIsstant`** (one shared branch). Optionally one PR `AssIsstant` → **master** for you to review.
+Internal assistant tooling and AssIsstant workflow live in-repo for the publisher only (`mm.toml`, `maintenance_monkey/`). End users do not need them. Store packages must not ship those folders (see `scripts/build-msix.ps1`).
 
 ## License
 
-Personal project — use and modify freely.
+Source in this repository may be used and modified freely. Microsoft Store purchases are subject to Microsoft’s terms and the listing price.

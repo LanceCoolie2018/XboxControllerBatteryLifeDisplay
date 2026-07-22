@@ -1,0 +1,41 @@
+name: Bug report
+description: Something wrong with BatteryHUD (Store or source install)
+title: "[Bug] "
+labels: ["customer-report", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Store customers and source builds both use this form.
+        The maintainer pipeline picks up issues labeled **customer-report**.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What went wrong?
+      description: What did you expect vs what happened?
+      placeholder: e.g. Controller shows connected after I power it off…
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Shown in the Bug dialog environment block, or about/version if available
+      placeholder: "1.0.0"
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: Windows 11
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log snippet (optional)
+      description: Recent lines from the app log if you have them
+      render: shell
+    validations:
+      required: false

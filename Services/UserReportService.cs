@@ -6,13 +6,33 @@ using System.Text.RegularExpressions;
 namespace BatteryHUD.Services;
 
 /// <summary>
-/// Appends open checklist items to the repo's UserReport.md so users can
-/// file issues from the HUD without editing source by hand.
-/// Maintenance Monkey picks up unchecked <c>- [ ]</c> lines.
+/// Appends open checklist items to the repo's UserReport.md (dev installs).
+/// Store / release installs use <see cref="GitHubIssueReportService"/> instead.
 /// </summary>
 public static class UserReportService
 {
     private static readonly object Gate = new();
+
+    /// <summary>
+    /// True when running from a source tree that has UserReport.md or the csproj
+    /// (laptop / monkey workflow). False for Store/MSIX/published installs.
+    /// </summary>
+    public static bool IsDevRepoInstall()
+    {
+        var path = ResolvePath();
+        if (path is not null && File.Exists(path))
+            return true;
+
+        var probe = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 8 && probe is not null; i++)
+        {
+            if (File.Exists(Path.Combine(probe.FullName, "BatteryHUD.csproj")))
+                return true;
+            probe = probe.Parent;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Locate UserReport.md by walking up from the app base directory

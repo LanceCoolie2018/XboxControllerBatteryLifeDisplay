@@ -18,6 +18,7 @@ from maintenance_monkey.dispatch.grok_runner import GrokRunner
 from maintenance_monkey.pipeline.fingerprint import fingerprint_text
 from maintenance_monkey.pipeline.queue import enqueue_incident
 from maintenance_monkey.dashboard import run_dashboard
+from maintenance_monkey.sensors.github_issues import scan_github_issues
 from maintenance_monkey.sensors.user_report import scan_user_report
 from maintenance_monkey.state import State
 
@@ -234,6 +235,20 @@ def cmd_user_report(args: argparse.Namespace) -> int:
     _setup_logging(cfg, args.verbose)
     trigger = getattr(args, "trigger", None) or "manual"
     msgs = scan_user_report(cfg, state, trigger=trigger)
+    for m in msgs:
+        print(m)
+    if getattr(args, "dispatch", False):
+        runner = GrokRunner(cfg, state)
+        for m in runner.process_queue():
+            print(m)
+    return 0
+
+
+def cmd_github_issues(args: argparse.Namespace) -> int:
+    cfg, state = _load(args)
+    _setup_logging(cfg, args.verbose)
+    trigger = getattr(args, "trigger", None) or "manual"
+    msgs = scan_github_issues(cfg, state, trigger=trigger)
     for m in msgs:
         print(m)
     if getattr(args, "dispatch", False):
@@ -501,6 +516,21 @@ def build_parser() -> argparse.ArgumentParser:
     sc.add_argument("--trigger", default="manual")
     sc.add_argument("--dispatch", action="store_true", help="Also run queued jobs")
     sc.set_defaults(func=cmd_user_report)
+
+    s = sub.add_parser(
+        "github-issues",
+        help="Scan labeled GitHub Issues and enqueue jobs",
+        parents=[common],
+    )
+    gi = s.add_subparsers(dest="gi_cmd", required=True)
+    gsc = gi.add_parser(
+        "scan",
+        help="Fetch open customer-report Issues and enqueue",
+        parents=[common],
+    )
+    gsc.add_argument("--trigger", default="manual")
+    gsc.add_argument("--dispatch", action="store_true", help="Also run queued jobs")
+    gsc.set_defaults(func=cmd_github_issues)
 
     s = sub.add_parser("report", help="File a manual incident", parents=[common])
     s.add_argument("text", nargs="+")

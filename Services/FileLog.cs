@@ -64,6 +64,40 @@ public static class FileLog
         Write("ERROR", ex.ToString());
     }
 
+    /// <summary>
+    /// Last N lines of the log file for bug reports (best-effort).
+    /// </summary>
+    public static string ReadTail(int maxLines = 50)
+    {
+        try
+        {
+            var path = LogPath;
+            if (!File.Exists(path))
+                return "(no log file yet)";
+
+            // Share with the live writer
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var lines = new List<string>();
+            while (reader.ReadLine() is { } line)
+            {
+                lines.Add(line);
+                if (lines.Count > maxLines)
+                    lines.RemoveAt(0);
+            }
+
+            return lines.Count == 0 ? "(log empty)" : string.Join(Environment.NewLine, lines);
+        }
+        catch (Exception ex)
+        {
+            return $"(could not read log: {ex.Message})";
+        }
+    }
+
     private static void Write(string level, string message)
     {
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {message}";
