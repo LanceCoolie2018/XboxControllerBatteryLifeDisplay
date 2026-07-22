@@ -62,7 +62,7 @@
                 Padding="6,2"
                 FontSize="11"
                 Click="OnBugClick"
-                ToolTip.Tip="Report a bug — adds an open item to UserReport.md" />
+                ToolTip.Tip="Report a bug — opens GitHub (or local UserReport in dev)" />
         <Button x:Name="ExitButton"
                 Content="Exit"
                 Padding="6,2"

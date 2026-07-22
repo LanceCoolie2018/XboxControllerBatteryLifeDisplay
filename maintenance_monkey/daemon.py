@@ -12,6 +12,7 @@ from maintenance_monkey.dispatch.grok_runner import GrokRunner
 from maintenance_monkey.sensors.known_bugs import KnownBugMatcher
 from maintenance_monkey.sensors.logs import LogTailer
 from maintenance_monkey.sensors.process import ProcessSupervisor
+from maintenance_monkey.sensors.github_issues import GitHubIssuesWatcher, scan_github_issues
 from maintenance_monkey.sensors.user_report import UserReportWatcher, scan_user_report
 from maintenance_monkey.state import State
 
@@ -28,6 +29,7 @@ class Daemon:
             known = KnownBugMatcher(cfg.project.root / cfg.known_bugs.path)
         self.logs = LogTailer(cfg, state, known=known) if cfg.logs.paths else None
         self.user_report = UserReportWatcher(cfg, state)
+        self.github_issues = GitHubIssuesWatcher(cfg, state)
         self.process = ProcessSupervisor(cfg, state)
         self.runner = GrokRunner(cfg, state)
 
@@ -53,6 +55,9 @@ class Daemon:
         # initial user report scan (with optional pull)
         if cfg.user_report.enabled:
             for msg in scan_user_report(cfg, self.state, trigger="daemon_start"):
+                log.info("%s", msg)
+        if cfg.github_issues.enabled:
+            for msg in scan_github_issues(cfg, self.state, trigger="daemon_start"):
                 log.info("%s", msg)
 
         self.process.start()
@@ -110,6 +115,8 @@ class Daemon:
                         log.info("%s", msg)
                 for msg in self.user_report.poll(now):
                     log.info("%s", msg)
+                for msg in self.github_issues.poll(now):
+                    log.info("%s", msg)
                 # Drop jobs for closed UserReport items before starting more work
                 try:
                     from maintenance_monkey.pipeline.acknowledge import (
@@ -150,6 +157,8 @@ def run_once(cfg: Config, state: State) -> list[str]:
         known = KnownBugMatcher(cfg.project.root / cfg.known_bugs.path)
     if cfg.user_report.enabled:
         messages.extend(scan_user_report(cfg, state, trigger="once"))
+    if cfg.github_issues.enabled:
+        messages.extend(scan_github_issues(cfg, state, trigger="once"))
     if cfg.logs.paths:
         tailer = LogTailer(cfg, state, known=known)
         # from_start for once if empty positions — force read new content only

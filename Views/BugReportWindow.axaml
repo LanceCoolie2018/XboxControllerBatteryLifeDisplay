@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="BatteryHUD.Views.BugReportWindow"
         Title="Report a bug"
-        Width="380" Height="220"
-        MinWidth="300" MinHeight="180"
+        Width="400" Height="260"
+        MinWidth="300" MinHeight="200"
         CanResize="True"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="Full"
@@ -16,8 +16,8 @@
                FontSize="18"
                FontWeight="SemiBold"
                Margin="0,0,0,4" />
-    <TextBlock DockPanel.Dock="Top"
-               Text="Adds an open item to UserReport.md so Maintenance Monkey can pick it up. No need to edit the file by hand."
+    <TextBlock x:Name="HelpText"
+               DockPanel.Dock="Top"
                TextWrapping="Wrap"
                Opacity="0.75"
                Margin="0,0,0,12" />
@@ -29,7 +29,14 @@
                  IsVisible="False" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
         <Button Content="Cancel" Click="OnCancel" IsCancel="True" />
-        <Button x:Name="SubmitButton" Content="Add to UserReport" Click="OnSubmit" IsDefault="True" />
+        <Button x:Name="LocalButton"
+                Content="Save locally"
+                Click="OnSubmitLocal"
+                IsVisible="False" />
+        <Button x:Name="SubmitButton"
+                Content="Open on GitHub"
+                Click="OnSubmitGitHub"
+                IsDefault="True" />
       </StackPanel>
     </StackPanel>
 
@@ -40,4 +47,3 @@
              MinHeight="64" />
   </DockPanel>
 </Window>
-
