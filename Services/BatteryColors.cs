@@ -5,14 +5,19 @@ namespace BatteryHUD.Services;
 
 public static class BatteryColors
 {
-    /// <param name="lowThreshold">Reserved for call-site compatibility; low battery uses opacity pulse.</param>
     public static IBrush ForPercent(int? percent, int lowThreshold, bool disconnected)
     {
         if (disconnected || percent is null)
             return Brush("#FF5252"); // red
 
-        // Blue reads more clearly than green/yellow on the dark overlay.
-        return Brush("#42A5F5");
+        // Green/yellow/orange traffic-light palette (preferred over solid blue).
+        return percent.Value switch
+        {
+            var p when p <= lowThreshold => Brush("#FF1744"),
+            var p when p <= 30 => Brush("#FF9100"),
+            var p when p <= 70 => Brush("#FFD600"),
+            _ => Brush("#00E676")
+        };
     }
 
     public static string LabelFor(BatteryDevice? device, int lowThreshold)
