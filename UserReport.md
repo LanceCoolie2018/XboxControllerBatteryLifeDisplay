@@ -25,7 +25,7 @@
 - [x] need an ability to duplicate itself to monitor another device and have 2 widgets at the same time — fixed: Dup button opens another overlay; each widget has its own device + position; Exit closes one widget (last quits)
 - [x] i want to add a secondary widget to this, the widget should display time in a way that looks like a 3D hologram that i can move anywhere on the screen/screens too. — fixed: Time button opens draggable cyan hologram clock (any screen); position + open state saved
 - [x] blue is a bad color, lets go back to green
-- [ ] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
+- [x] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
 
 
 
