@@ -8,7 +8,7 @@ using Avalonia.VisualTree;
 namespace BatteryHUD.Views;
 
 /// <summary>
-/// Secondary always-on-top overlay: live clock styled as a dark-red / gold 3D hologram.
+/// Secondary always-on-top overlay: live clock styled as a cyan hologram plate with bright red digits and gold labels.
 /// Drag to any screen; position is persisted via the host callback.
 /// </summary>
 public partial class HologramClockWindow : Window

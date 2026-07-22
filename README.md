@@ -19,7 +19,7 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **Sticky readings** — brief BT/WMI blips keep the last % through a short grace window
 - **Choose + switch anytime** — device picker, selection remembered by stable key
 - **Duplicate widgets** — **Dup** opens another overlay so you can watch two devices at once
-- **Hologram clock** — **Time** opens a secondary dark-red / gold “3D hologram” clock you can drag to any screen
+- **Hologram clock** — **Time** opens a secondary cyan-plate hologram clock (bright red digits, gold labels) you can drag to any screen
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
 - **Drag to position**; remembers window placement (per widget / clock)
 - **Bug button** — opens a GitHub Issue report (version + log snippet); dev installs can also save locally

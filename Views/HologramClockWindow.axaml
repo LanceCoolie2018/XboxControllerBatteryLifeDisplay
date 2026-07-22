@@ -16,16 +16,17 @@
         ExtendClientAreaTitleBarHeightHint="0">
 
   <!--
-    3D hologram look: dark-red glass plate + gold labels + RGB-offset ghost digits + soft scan-line band.
-    Time digits use dark red (not bright white); HOLO TIME / date / close use crisp gold.
+    3D hologram look: original cyan glass plate + bright red digits + gold labels
+    + RGB-offset ghost digits + soft scan-line band.
+    Plate must stay cyan (not red/gold) so it does not match text colors.
     Drag anywhere except the X button; position is saved.
   -->
   <Border x:Name="RootBorder"
-          Background="#33141010"
+          Background="#33101828"
           CornerRadius="12"
-          BorderBrush="#88C8A020"
+          BorderBrush="#8840F0FF"
           BorderThickness="1.5"
-          BoxShadow="0 0 18 2 #55A01828"
+          BoxShadow="0 0 18 2 #5540F0FF"
           Padding="14,10,14,12"
           PointerPressed="OnPointerPressed"
           PointerMoved="OnPointerMoved"
@@ -38,9 +39,9 @@
               Opacity="0.35">
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Color="#55C8A020" Offset="0" />
+            <GradientStop Color="#5540F0FF" Offset="0" />
             <GradientStop Color="#00000000" Offset="0.45" />
-            <GradientStop Color="#33801820" Offset="1" />
+            <GradientStop Color="#3320A0FF" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
       </Border>
@@ -56,7 +57,7 @@
         <Border.Background>
           <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
             <GradientStop Color="#00000000" Offset="0" />
-            <GradientStop Color="#AAE8C84A" Offset="0.5" />
+            <GradientStop Color="#AA80FFFF" Offset="0.5" />
             <GradientStop Color="#00000000" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
@@ -85,35 +86,35 @@
                   ToolTip.Tip="Close hologram clock" />
         </Grid>
 
-        <!-- Time: layered chromatic ghosts under dark-red digits -->
+        <!-- Time: layered chromatic ghosts under bright red digits -->
         <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0">
-          <!-- Deep crimson ghost (depth left) -->
+          <!-- Magenta ghost (depth left) -->
           <TextBlock x:Name="TimeGhostMagenta"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#66501018"
+                     Foreground="#66FF40A0"
                      HorizontalAlignment="Center"
                      IsHitTestVisible="False"
                      Margin="-2,1,0,0" />
-          <!-- Warm gold ghost (depth right) -->
+          <!-- Cyan ghost (depth right) -->
           <TextBlock x:Name="TimeGhostCyan"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#66C8A020"
+                     Foreground="#6640FFFF"
                      HorizontalAlignment="Center"
                      IsHitTestVisible="False"
                      Margin="2,-1,0,0" />
-          <!-- Main hologram digits — dark red (not bright white) -->
+          <!-- Main hologram digits — bright red (readable on cyan plate) -->
           <TextBlock x:Name="TimeText"
                      Text="--:--"
                      FontSize="36"
                      FontWeight="Bold"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#8B1515"
+                     Foreground="#FF3A3A"
                      HorizontalAlignment="Center" />
         </Grid>
 
