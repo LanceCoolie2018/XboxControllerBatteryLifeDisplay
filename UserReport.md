@@ -28,6 +28,7 @@
 - [x] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
 - [x] [UR-gh-20] needs a option for a holo grandfather clock so that people can personalize their space — fixed: Style toggle on hologram clock (Digital / Grandfather analog+pendulum); choice saved in settings
 
+- [ ] 
 ## Notes
 
 - App logs go to `logs/batteryhud.log` (created at runtime by `FileLog`).
