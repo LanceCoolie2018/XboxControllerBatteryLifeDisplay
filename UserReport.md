@@ -27,8 +27,6 @@
 - [x] blue is a bad color, lets go back to green
 - [x] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
 
-- [ ] 
-
 ## Notes
 
 - App logs go to `logs/batteryhud.log` (created at runtime by `FileLog`).
