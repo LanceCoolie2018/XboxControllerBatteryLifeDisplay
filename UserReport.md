@@ -26,6 +26,7 @@
 - [x] i want to add a secondary widget to this, the widget should display time in a way that looks like a 3D hologram that i can move anywhere on the screen/screens too. — fixed: Time button opens draggable cyan hologram clock (any screen); position + open state saved
 
 
+
 ## Notes
 
 - App logs go to `logs/batteryhud.log` (created at runtime by `FileLog`).
