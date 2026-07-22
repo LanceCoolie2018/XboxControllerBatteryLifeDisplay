@@ -90,6 +90,7 @@ public sealed class WidgetHost
             _settings.ShowHologramClock = true;
             _settings.ClockWindowX = _clock.WindowX;
             _settings.ClockWindowY = _clock.WindowY;
+            _settings.HologramClockStyle = _clock.StyleName;
         }
         // When clock is closed, ShowHologramClock is cleared in OnClockClosed.
 
@@ -112,6 +113,7 @@ public sealed class WidgetHost
             _settings.ClockWindowX,
             _settings.ClockWindowY,
             _settings.EdgePadding,
+            _settings.HologramClockStyle,
             onPersist: PersistAll,
             onClosedByUser: OnClockClosed);
 
@@ -127,9 +129,10 @@ public sealed class WidgetHost
         if (_clock is null)
             return;
 
-        // Capture position one last time before dropping the reference.
+        // Capture position + style one last time before dropping the reference.
         _settings.ClockWindowX = _clock.WindowX;
         _settings.ClockWindowY = _clock.WindowY;
+        _settings.HologramClockStyle = _clock.StyleName;
         _settings.ShowHologramClock = false;
         _clock = null;
         _settingsService.Save(_settings);

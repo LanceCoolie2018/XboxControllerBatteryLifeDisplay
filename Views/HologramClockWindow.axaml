@@ -3,7 +3,7 @@
         x:Class="BatteryHUD.Views.HologramClockWindow"
         Title="BatteryHUD Time"
         Width="280" Height="100"
-        MinWidth="220" MinHeight="90"
+        MinWidth="120" MinHeight="90"
         CanResize="False"
         SystemDecorations="None"
         Topmost="True"
@@ -16,10 +16,9 @@
         ExtendClientAreaTitleBarHeightHint="0">
 
   <!--
-    3D hologram look: original cyan glass plate + bright red digits + gold labels
-    + RGB-offset ghost digits + soft scan-line band.
-    Plate must stay cyan (not red/gold) so it does not match text colors.
-    Drag anywhere except the X button; position is saved.
+    3D hologram look: cyan glass plate + bright red accents + gold labels.
+    Styles: Digital (compact digits) or Grandfather (tall analog + pendulum).
+    Toggle Style on the title row; choice is saved. Drag anywhere except buttons.
   -->
   <Border x:Name="RootBorder"
           Background="#33101828"
@@ -31,7 +30,7 @@
           PointerPressed="OnPointerPressed"
           PointerMoved="OnPointerMoved"
           PointerReleased="OnPointerReleased"
-          ToolTip.Tip="Hologram clock · drag to move · X to close">
+          ToolTip.Tip="Hologram clock · drag to move · Style to personalize · X to close">
     <Grid>
       <!-- Subtle top-to-bottom hologram sheen -->
       <Border CornerRadius="10"
@@ -63,17 +62,30 @@
         </Border.Background>
       </Border>
 
-      <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Title row + close -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,2">
-          <TextBlock Text="HOLO TIME"
+      <Grid RowDefinitions="Auto,*">
+        <!-- Title row + style toggle + close -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,2">
+          <TextBlock x:Name="TitleText"
+                     Text="HOLO TIME"
                      FontSize="9"
                      FontWeight="SemiBold"
                      LetterSpacing="2"
                      Foreground="#E8C84A"
                      VerticalAlignment="Center" />
-          <Button x:Name="CloseButton"
+          <Button x:Name="StyleButton"
                   Grid.Column="1"
+                  Content="Style"
+                  Padding="6,0"
+                  FontSize="10"
+                  MinWidth="40"
+                  MinHeight="18"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Foreground="#E8C84A"
+                  Click="OnStyleClick"
+                  ToolTip.Tip="Switch Digital / Grandfather hologram style" />
+          <Button x:Name="CloseButton"
+                  Grid.Column="2"
                   Content="✕"
                   Padding="6,0"
                   FontSize="11"
@@ -86,47 +98,197 @@
                   ToolTip.Tip="Close hologram clock" />
         </Grid>
 
-        <!-- Time: layered chromatic ghosts under bright red digits -->
-        <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0">
-          <!-- Magenta ghost (depth left) -->
-          <TextBlock x:Name="TimeGhostMagenta"
-                     Text="--:--"
-                     FontSize="36"
-                     FontWeight="Bold"
+        <!-- ===== Digital style ===== -->
+        <Grid x:Name="DigitalPanel"
+              Grid.Row="1"
+              RowDefinitions="*,Auto"
+              IsVisible="True">
+          <!-- Time: layered chromatic ghosts under bright red digits -->
+          <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0">
+            <TextBlock x:Name="TimeGhostMagenta"
+                       Text="--:--"
+                       FontSize="36"
+                       FontWeight="Bold"
+                       FontFamily="Consolas, Courier New, monospace"
+                       Foreground="#66FF40A0"
+                       HorizontalAlignment="Center"
+                       IsHitTestVisible="False"
+                       Margin="-2,1,0,0" />
+            <TextBlock x:Name="TimeGhostCyan"
+                       Text="--:--"
+                       FontSize="36"
+                       FontWeight="Bold"
+                       FontFamily="Consolas, Courier New, monospace"
+                       Foreground="#6640FFFF"
+                       HorizontalAlignment="Center"
+                       IsHitTestVisible="False"
+                       Margin="2,-1,0,0" />
+            <TextBlock x:Name="TimeText"
+                       Text="--:--"
+                       FontSize="36"
+                       FontWeight="Bold"
+                       FontFamily="Consolas, Courier New, monospace"
+                       Foreground="#FF3A3A"
+                       HorizontalAlignment="Center" />
+          </Grid>
+
+          <TextBlock x:Name="DateText"
+                     Grid.Row="1"
+                     Text=""
+                     FontSize="11"
                      FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#66FF40A0"
+                     Foreground="#F0C53A"
                      HorizontalAlignment="Center"
-                     IsHitTestVisible="False"
-                     Margin="-2,1,0,0" />
-          <!-- Cyan ghost (depth right) -->
-          <TextBlock x:Name="TimeGhostCyan"
-                     Text="--:--"
-                     FontSize="36"
-                     FontWeight="Bold"
-                     FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#6640FFFF"
-                     HorizontalAlignment="Center"
-                     IsHitTestVisible="False"
-                     Margin="2,-1,0,0" />
-          <!-- Main hologram digits — bright red (readable on cyan plate) -->
-          <TextBlock x:Name="TimeText"
-                     Text="--:--"
-                     FontSize="36"
-                     FontWeight="Bold"
-                     FontFamily="Consolas, Courier New, monospace"
-                     Foreground="#FF3A3A"
-                     HorizontalAlignment="Center" />
+                     Margin="0,2,0,0" />
         </Grid>
 
-        <!-- Date / seconds line -->
-        <TextBlock x:Name="DateText"
-                   Grid.Row="2"
-                   Text=""
-                   FontSize="11"
-                   FontFamily="Consolas, Courier New, monospace"
-                   Foreground="#F0C53A"
-                   HorizontalAlignment="Center"
-                   Margin="0,2,0,0" />
+        <!-- ===== Grandfather style (tall holographic case) ===== -->
+        <Grid x:Name="GrandfatherPanel"
+              Grid.Row="1"
+              RowDefinitions="Auto,Auto,*,Auto"
+              IsVisible="False"
+              HorizontalAlignment="Center">
+          <!-- Analog face -->
+          <Grid Grid.Row="0"
+                Width="108"
+                Height="108"
+                HorizontalAlignment="Center"
+                Margin="0,4,0,2">
+            <!-- Outer ring glow -->
+            <Ellipse Width="108" Height="108"
+                     Stroke="#AA40F0FF"
+                     StrokeThickness="2"
+                     Fill="#22101828" />
+            <Ellipse Width="96" Height="96"
+                     Stroke="#5540F0FF"
+                     StrokeThickness="1"
+                     Fill="Transparent"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
+
+            <!-- Hour ticks (12 small cyan marks) -->
+            <Border Width="2" Height="8" Background="#AA40F0FF"
+                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" IsHitTestVisible="False" />
+            <Border Width="2" Height="8" Background="#8840F0FF"
+                    HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" IsHitTestVisible="False" />
+            <Border Width="8" Height="2" Background="#8840F0FF"
+                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False" />
+            <Border Width="8" Height="2" Background="#8840F0FF"
+                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" IsHitTestVisible="False" />
+
+            <!-- Hands pivot at face center; rotation set in code-behind -->
+            <Border x:Name="HourHand"
+                    Width="4" Height="28"
+                    Background="#FF3A3A"
+                    CornerRadius="2"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="0,0,0,14"
+                    RenderTransformOrigin="50%,100%"
+                    IsHitTestVisible="False">
+              <Border.RenderTransform>
+                <RotateTransform Angle="0" />
+              </Border.RenderTransform>
+            </Border>
+            <Border x:Name="MinuteHand"
+                    Width="3" Height="38"
+                    Background="#FF5555"
+                    CornerRadius="1.5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="0,0,0,19"
+                    RenderTransformOrigin="50%,100%"
+                    IsHitTestVisible="False">
+              <Border.RenderTransform>
+                <RotateTransform Angle="0" />
+              </Border.RenderTransform>
+            </Border>
+            <Border x:Name="SecondHand"
+                    Width="1.5" Height="42"
+                    Background="#E8C84A"
+                    CornerRadius="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="0,0,0,21"
+                    RenderTransformOrigin="50%,100%"
+                    IsHitTestVisible="False">
+              <Border.RenderTransform>
+                <RotateTransform Angle="0" />
+              </Border.RenderTransform>
+            </Border>
+            <!-- Center pin -->
+            <Ellipse Width="8" Height="8"
+                     Fill="#FF3A3A"
+                     Stroke="#E8C84A"
+                     StrokeThickness="1"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     IsHitTestVisible="False" />
+          </Grid>
+
+          <!-- Case waist (narrows under the face) -->
+          <Border Grid.Row="1"
+                  Width="36"
+                  Height="10"
+                  Background="#3340F0FF"
+                  BorderBrush="#6640F0FF"
+                  BorderThickness="1"
+                  CornerRadius="2"
+                  HorizontalAlignment="Center"
+                  Margin="0,0,0,2"
+                  IsHitTestVisible="False" />
+
+          <!-- Pendulum chamber -->
+          <Grid Grid.Row="2"
+                Width="72"
+                Height="72"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,2">
+            <Border Background="#18101828"
+                    BorderBrush="#5540F0FF"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    IsHitTestVisible="False" />
+            <!-- Single pivot: rod + bob swing together from the top center -->
+            <StackPanel x:Name="PendulumAssembly"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Margin="0,4,0,0"
+                        Spacing="0"
+                        RenderTransformOrigin="50%,0%"
+                        IsHitTestVisible="False">
+              <StackPanel.RenderTransform>
+                <RotateTransform Angle="0" />
+              </StackPanel.RenderTransform>
+              <Border Width="3" Height="40"
+                      Background="#AA40F0FF"
+                      CornerRadius="1"
+                      HorizontalAlignment="Center" />
+              <Ellipse Width="22" Height="22"
+                       Fill="#66FF3A3A"
+                       Stroke="#FF3A3A"
+                       StrokeThickness="1.5"
+                       HorizontalAlignment="Center"
+                       Margin="0,-2,0,0" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Grid.Row="3" Spacing="1" HorizontalAlignment="Center">
+            <TextBlock x:Name="GrandDigitalText"
+                       Text="--:--"
+                       FontSize="12"
+                       FontWeight="Bold"
+                       FontFamily="Consolas, Courier New, monospace"
+                       Foreground="#FF3A3A"
+                       HorizontalAlignment="Center" />
+            <TextBlock x:Name="GrandDateText"
+                       Text=""
+                       FontSize="10"
+                       FontFamily="Consolas, Courier New, monospace"
+                       Foreground="#F0C53A"
+                       HorizontalAlignment="Center" />
+          </StackPanel>
+        </Grid>
       </Grid>
     </Grid>
   </Border>

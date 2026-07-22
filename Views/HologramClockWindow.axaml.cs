@@ -2,17 +2,22 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace BatteryHUD.Views;
 
 /// <summary>
-/// Secondary always-on-top overlay: live clock styled as a cyan hologram plate with bright red digits and gold labels.
-/// Drag to any screen; position is persisted via the host callback.
+/// Secondary always-on-top overlay: live clock as a cyan hologram plate.
+/// Styles: Digital (compact red digits) or Grandfather (tall analog + pendulum).
+/// Drag to any screen; position and style are persisted via the host callback.
 /// </summary>
 public partial class HologramClockWindow : Window
 {
+    public const string StyleDigital = "Digital";
+    public const string StyleGrandfather = "Grandfather";
+
     private readonly Action? _onPersist;
     private readonly Action? _onClosedByUser;
     private readonly int _edgePadding;
@@ -23,9 +28,10 @@ public partial class HologramClockWindow : Window
     private bool _dragging;
     private Point _dragStart;
     private double _scanOffset;
+    private string _style;
 
     // Avalonia design-time / resource loader
-    public HologramClockWindow() : this(null, null, 12, null, null)
+    public HologramClockWindow() : this(null, null, 12, StyleDigital, null, null)
     {
     }
 
@@ -33,6 +39,7 @@ public partial class HologramClockWindow : Window
         double? windowX,
         double? windowY,
         int edgePadding,
+        string? style,
         Action? onPersist,
         Action? onClosedByUser)
     {
@@ -41,6 +48,7 @@ public partial class HologramClockWindow : Window
         _edgePadding = edgePadding;
         _onPersist = onPersist;
         _onClosedByUser = onClosedByUser;
+        _style = NormalizeStyle(style);
 
         InitializeComponent();
 
@@ -48,7 +56,7 @@ public partial class HologramClockWindow : Window
         _clockTimer.Tick += (_, _) => TickClock();
         _clockTimer.Start();
 
-        // Soft scan-line drift for a hologram projector feel
+        // Soft scan-line drift + pendulum swing for a hologram projector feel
         _scanTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
         _scanTimer.Tick += (_, _) => TickScan();
         _scanTimer.Start();
@@ -56,23 +64,103 @@ public partial class HologramClockWindow : Window
         Opened += (_, _) => PlaceWindow();
         Closing += OnClosing;
 
+        ApplyStyleLayout(persist: false);
         TickClock();
     }
 
     public double WindowX => Position.X;
     public double WindowY => Position.Y;
 
+    /// <summary>Persisted style name: Digital or Grandfather.</summary>
+    public string StyleName => _style;
+
+    private static string NormalizeStyle(string? style) =>
+        string.Equals(style, StyleGrandfather, StringComparison.OrdinalIgnoreCase)
+            ? StyleGrandfather
+            : StyleDigital;
+
+    private void ApplyStyleLayout(bool persist)
+    {
+        var grandfather = _style == StyleGrandfather;
+        DigitalPanel.IsVisible = !grandfather;
+        GrandfatherPanel.IsVisible = grandfather;
+        TitleText.Text = grandfather ? "HOLO GRAND" : "HOLO TIME";
+        ToolTip.SetTip(StyleButton,
+            grandfather
+                ? "Switch to Digital hologram style"
+                : "Switch to Grandfather hologram style");
+
+        // Compact plate vs tall case
+        if (grandfather)
+        {
+            Width = 148;
+            Height = 268;
+            MinWidth = 130;
+            MinHeight = 240;
+            RootBorder.Padding = new Thickness(10, 8, 10, 10);
+        }
+        else
+        {
+            Width = 280;
+            Height = 100;
+            MinWidth = 220;
+            MinHeight = 90;
+            RootBorder.Padding = new Thickness(14, 10, 14, 12);
+        }
+
+        TickClock();
+        if (persist)
+            _onPersist?.Invoke();
+    }
+
+    private void OnStyleClick(object? sender, RoutedEventArgs e)
+    {
+        _style = _style == StyleGrandfather ? StyleDigital : StyleGrandfather;
+        ApplyStyleLayout(persist: true);
+    }
+
     private void TickClock()
     {
         var now = DateTime.Now;
-        // 12h with AM/PM keeps the digit block readable; 24h would be denser
+        // 12h with AM/PM keeps the digit block readable
         var time = now.ToString("h:mm:ss");
         var ampm = now.ToString("tt");
         var display = $"{time} {ampm}";
-        TimeText.Text = display;
-        TimeGhostMagenta.Text = display;
-        TimeGhostCyan.Text = display;
-        DateText.Text = now.ToString("ddd · MMM d · yyyy").ToUpperInvariant();
+        var date = now.ToString("ddd · MMM d · yyyy").ToUpperInvariant();
+
+        if (_style == StyleDigital)
+        {
+            TimeText.Text = display;
+            TimeGhostMagenta.Text = display;
+            TimeGhostCyan.Text = display;
+            DateText.Text = date;
+        }
+        else
+        {
+            GrandDigitalText.Text = display;
+            GrandDateText.Text = date;
+            UpdateAnalogHands(now);
+        }
+    }
+
+    private void UpdateAnalogHands(DateTime now)
+    {
+        // Clock angles: 0° = 12 o'clock, clockwise positive (Avalonia RotateTransform).
+        var sec = now.Second + now.Millisecond / 1000.0;
+        var min = now.Minute + sec / 60.0;
+        var hour = (now.Hour % 12) + min / 60.0;
+
+        SetHandAngle(HourHand, hour * 30.0);   // 360/12
+        SetHandAngle(MinuteHand, min * 6.0);   // 360/60
+        SetHandAngle(SecondHand, sec * 6.0);
+    }
+
+    private static void SetHandAngle(Border hand, double degrees)
+    {
+        if (hand.RenderTransform is RotateTransform rot)
+            rot.Angle = degrees;
+        else
+            hand.RenderTransform = new RotateTransform(degrees);
     }
 
     private void TickScan()
@@ -87,7 +175,18 @@ public partial class HologramClockWindow : Window
         // Subtle opacity pulse on main digits (hologram flicker)
         var t = Environment.TickCount64 / 1000.0;
         var flicker = 0.88 + 0.12 * Math.Sin(t * 3.1);
-        TimeText.Opacity = flicker;
+        if (_style == StyleDigital)
+            TimeText.Opacity = flicker;
+        else
+        {
+            GrandDigitalText.Opacity = flicker;
+            // Pendulum swing (~0.55 Hz, small arc)
+            var swing = 14.0 * Math.Sin(t * Math.PI * 1.1);
+            if (PendulumAssembly.RenderTransform is RotateTransform pendRot)
+                pendRot.Angle = swing;
+            else
+                PendulumAssembly.RenderTransform = new RotateTransform(swing);
+        }
     }
 
     private void PlaceWindow()
@@ -146,7 +245,8 @@ public partial class HologramClockWindow : Window
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Source is Visual v && IsOverButton(v, CloseButton))
+        if (e.Source is Visual v &&
+            (IsOverButton(v, CloseButton) || IsOverButton(v, StyleButton)))
             return;
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)

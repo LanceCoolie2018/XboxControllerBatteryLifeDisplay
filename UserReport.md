@@ -26,6 +26,7 @@
 - [x] i want to add a secondary widget to this, the widget should display time in a way that looks like a 3D hologram that i can move anywhere on the screen/screens too. — fixed: Time button opens draggable cyan hologram clock (any screen); position + open state saved
 - [x] blue is a bad color, lets go back to green
 - [x] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
+- [x] [UR-gh-20] needs a option for a holo grandfather clock so that people can personalize their space — fixed: Style toggle on hologram clock (Digital / Grandfather analog+pendulum); choice saved in settings
 
 ## Notes
 

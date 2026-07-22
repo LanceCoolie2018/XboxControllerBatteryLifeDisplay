@@ -40,6 +40,12 @@ public sealed class AppSettings
     public double? ClockWindowY { get; set; }
 
     /// <summary>
+    /// Hologram clock appearance: "Digital" (default plate) or "Grandfather" (tall analog).
+    /// Unknown values fall back to Digital.
+    /// </summary>
+    public string HologramClockStyle { get; set; } = "Digital";
+
+    /// <summary>
     /// Widgets to open on startup: multi-slot list, or a single slot from legacy fields.
     /// </summary>
     public List<WidgetSlot> GetEffectiveWidgets()
