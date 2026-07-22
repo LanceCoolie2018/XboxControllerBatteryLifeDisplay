@@ -181,7 +181,21 @@ def scan_user_report(
         messages.append("no open UserReport items")
         return messages
 
+    ignore_pats = []
+    for pat in cfg.user_report.ignore or []:
+        try:
+            ignore_pats.append(re.compile(pat))
+        except re.error:
+            ignore_pats.append(re.compile(re.escape(pat), re.I))
+
     for item in opens:
+        if ignore_pats and any(
+            p.search(item.title) or (item.item_id and p.search(item.item_id))
+            for p in ignore_pats
+        ):
+            messages.append(f"{item.title[:60]}: ignored by config")
+            log.info("ignoring UserReport item: %s", item.title[:80])
+            continue
         body_parts = [
             f"# UserReport item",
             f"",

@@ -57,6 +57,8 @@ class UserReportConfig:
     # How often the daemon fetches/pulls the current branch and re-scans
     # UserReport for laptop pushes. 0 disables (local mtime watch only).
     remote_poll_seconds: float = 30.0
+    # Regexes (Python re) — open items matching any are never enqueued
+    ignore: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -210,6 +212,7 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             pull_before_scan=bool(user_report.get("pull_before_scan", False)),
             auto_check_on_pr=bool(user_report.get("auto_check_on_pr", True)),
             remote_poll_seconds=float(user_report.get("remote_poll_seconds", 30)),
+            ignore=_as_list(user_report.get("ignore")),
         ),
         dispatch=DispatchConfig(
             grok_bin=str(dispatch.get("grok_bin") or "grok"),
@@ -263,9 +266,14 @@ enabled = true
 path = "UserReport.md"
 debounce_seconds = 2
 pull_before_scan = false
-auto_check_on_pr = false
+auto_check_on_pr = true
 # Pi daemon: pull AssIsstant from origin this often so laptop pushes are seen
 remote_poll_seconds = 30
+# Never enqueue items matching these (jokes / out-of-scope)
+ignore = [
+  '(?i)monkey.*voice',
+  '(?i)doesn.?t have a voice',
+]
 
 [patterns]
 include = [
