@@ -70,7 +70,8 @@ def parse_user_report(text: str) -> tuple[list[UserReportItem], str]:
 
 def open_items(text: str) -> tuple[list[UserReportItem], str]:
     items, notes = parse_user_report(text)
-    return [i for i in items if not i.checked], notes
+    # Skip blank titles (e.g. accidental "- [ ] " lines) — nothing to fix.
+    return [i for i in items if not i.checked and i.title.strip()], notes
 
 
 def mark_item_checked(
@@ -189,6 +190,10 @@ def scan_user_report(
             ignore_pats.append(re.compile(re.escape(pat), re.I))
 
     for item in opens:
+        if not item.title.strip():
+            messages.append(f"line {item.line_no}: skipped empty checklist title")
+            log.info("skipping empty UserReport item at line %s", item.line_no)
+            continue
         if ignore_pats and any(
             p.search(item.title) or (item.item_id and p.search(item.item_id))
             for p in ignore_pats
