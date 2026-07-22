@@ -17,6 +17,7 @@ log = logging.getLogger("mm.user_report")
 # - [ ] title
 # - [ ] [id] title
 # - [x] done
+# Title must start with a non-whitespace char so "- [ ] " alone is not an item.
 ITEM_RE = re.compile(
     r"""^
     \s*[-*]\s*
@@ -24,7 +25,7 @@ ITEM_RE = re.compile(
       (?P<check>[ xX])
     \]\s*
     (?:\[(?P<id>[^\]]+)\]\s*)?
-    (?P<title>.+?)
+    (?P<title>\S.*?)
     \s*$
     """,
     re.VERBOSE,
