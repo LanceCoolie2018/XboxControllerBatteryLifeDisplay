@@ -275,10 +275,22 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     )
     lines.append("")
 
-    jobs = state.list_jobs(40)
+    # Honor human "task … complete" commits; clear resolved failures
+    try:
+        from maintenance_monkey.pipeline.acknowledge import (
+            clear_resolved_failures,
+            process_task_complete_commits,
+        )
+
+        process_task_complete_commits(cfg, state)
+        clear_resolved_failures(cfg, state)
+    except Exception:
+        pass
+
+    jobs = state.list_jobs(80)
     active = [j for j in jobs if j.status in ("queued", "running", "pushing")]
-    # Recent fixes pushed to AssIsstant (shared branch)
-    recent_done = [j for j in jobs if j.status == "done"][:8]
+    # Stay until you push a commit like: task complete / task UR-spacing complete
+    ready = [j for j in jobs if j.status == "done"]
     failed = [j for j in jobs if j.status == "failed"]
 
     # —— ACTIVE WORK ——
@@ -296,46 +308,48 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
             )
     lines.append("")
 
-    # —— READY FOR REVIEW (shared AssIsstant vs master) ——
+    # —— READY FOR REVIEW ——
     lines.append(_box_title("READY FOR REVIEW", width))
     lines.append(
-        f"  All monkey commits land on {_c(BOLD + CYAN, work)} "
-        f"(not per-bug branches)."
-    )
-    # Open PR AssIsstant → master if any
-    pr_url = ""
-    for j in recent_done:
-        if j.pr_url:
-            pr_url = j.pr_url
-            break
-    if pr_url:
-        lines.append(f"  {_c(GREEN + BOLD, 'PR')}  {_c(GREEN, _short_pr(pr_url))}")
-    try:
-        from maintenance_monkey.dispatch import git_workflow
-
-        ahead = git_workflow.commits_ahead(cfg, limit=10)
-    except Exception:
-        ahead = []
-    if ahead:
-        lines.append(_c(DIM, f"  commits on {work} not in {base}:"))
-        for c in ahead:
-            short = c if len(c) <= width - 6 else c[: width - 9] + "..."
-            lines.append(f"    {_c(GREEN, '•')} {short}")
-    else:
-        lines.append(
-            _c(DIM, f"  (no commits on {work} ahead of {base} — nothing pending)")
+        _c(
+            DIM,
+            "  Holds finished tasks until you commit+push on AssIsstant, e.g.:",
         )
-    if recent_done:
-        lines.append(_c(DIM, "  recent jobs:"))
-        for j in recent_done[:5]:
-            title = _job_title(state, j, 50)
-            lines.append(f"    {_c(DIM, _age(j.updated_at))}  {title}")
+    )
+    lines.append(
+        _c(DIM, '    git commit --allow-empty -m "task complete"')
+    )
+    lines.append(
+        _c(DIM, '    git commit --allow-empty -m "task UR-spacing complete"')
+    )
+    if not ready:
+        lines.append(_c(DIM, "  (none — no finished tasks waiting)"))
+    else:
+        pr_url = next((j.pr_url for j in ready if j.pr_url), "")
+        if pr_url:
+            lines.append(f"  {_c(GREEN + BOLD, 'PR')}  {_c(GREEN, _short_pr(pr_url))}")
+        for j in ready[:15]:
+            title = _job_title(state, j, 55)
+            lines.append(f"  {_c(GREEN + BOLD, 'done')}  {_c(BOLD, title)}")
+            extra = f"  pr={_short_pr(j.pr_url)}" if j.pr_url else ""
+            lines.append(
+                f"         id={j.id}  → {_c(CYAN, work)}"
+                f"  {_c(DIM, _age(j.updated_at))}{extra}"
+            )
+        if len(ready) > 15:
+            lines.append(_c(DIM, f"  … +{len(ready) - 15} more"))
     lines.append("")
 
-    # Failed (compact — only if any)
+    # Failed — auto-clears when same issue is fixed / UserReport checked / task complete
     if failed:
         lines.append(_box_title("FAILED", width))
-        for j in failed[:5]:
+        lines.append(
+            _c(
+                DIM,
+                "  Clears when the issue is fixed, UserReport item is [x], or you push task complete",
+            )
+        )
+        for j in failed[:8]:
             title = _job_title(state, j, 50)
             err = (j.error or "")[:50]
             lines.append(f"  {_c(RED, 'fail')}  {title}")
@@ -352,7 +366,7 @@ def render_frame(cfg: Config, state: State, *, interval: float) -> str:
     lines.append(
         _c(
             DIM,
-            f"  review {work} → merge to {base} when happy · [x] UserReport after merge",
+            f'  clear Ready: commit "task complete" (all) or "task <id> complete" · push {work}',
         )
     )
     return "\n".join(lines) + "\n"

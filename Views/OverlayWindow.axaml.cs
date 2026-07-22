@@ -13,28 +13,45 @@ public partial class OverlayWindow : Window
 {
     private readonly BatteryMonitorService _monitor;
     private readonly AppSettings _settings;
-    private readonly SettingsService _settingsService;
+    private readonly Action<OverlayWindow>? _onDuplicate;
+    private readonly Action? _onPersist;
+    private readonly Action? _onShowClock;
+    private string? _selectedDeviceId;
+    private bool _autoSelectWhenEmpty;
     private bool _dragging;
     private Point _dragStart;
     private bool _pulseOn;
     private readonly DispatcherTimer _pulseTimer;
+    private readonly double? _initialX;
+    private readonly double? _initialY;
 
     // Avalonia design-time / resource loader
     public OverlayWindow() : this(
         new BatteryMonitorService(BatteryProviderFactory.Create(), new AppSettings()),
         new AppSettings(),
-        new SettingsService())
+        new WidgetSlot(),
+        autoSelectWhenEmpty: true)
     {
     }
 
     public OverlayWindow(
         BatteryMonitorService monitor,
         AppSettings settings,
-        SettingsService settingsService)
+        WidgetSlot slot,
+        bool autoSelectWhenEmpty,
+        Action<OverlayWindow>? onDuplicate = null,
+        Action? onPersist = null,
+        Action? onShowClock = null)
     {
         _monitor = monitor;
         _settings = settings;
-        _settingsService = settingsService;
+        _selectedDeviceId = slot.SelectedDeviceId;
+        _autoSelectWhenEmpty = autoSelectWhenEmpty;
+        _onDuplicate = onDuplicate;
+        _onPersist = onPersist;
+        _onShowClock = onShowClock;
+        _initialX = slot.WindowX;
+        _initialY = slot.WindowY;
 
         InitializeComponent();
 
@@ -44,7 +61,7 @@ public partial class OverlayWindow : Window
         _pulseTimer.Tick += (_, _) =>
         {
             _pulseOn = !_pulseOn;
-            var selected = _monitor.Selected;
+            var selected = ResolveDevice();
             if (selected?.Percent is int p && p <= _settings.LowBatteryThreshold && selected.IsPresent)
                 PercentText.Opacity = _pulseOn ? 1.0 : 0.35;
             else
@@ -58,15 +75,34 @@ public partial class OverlayWindow : Window
         Render();
     }
 
+    /// <summary>Snapshot of this widget for multi-slot settings persistence.</summary>
+    public WidgetSlot ToSlot() => new()
+    {
+        SelectedDeviceId = _selectedDeviceId,
+        WindowX = Position.X,
+        WindowY = Position.Y
+    };
+
+    private BatteryDevice? ResolveDevice()
+    {
+        if (!string.IsNullOrEmpty(_selectedDeviceId))
+            return _monitor.FindDevice(_selectedDeviceId);
+
+        if (_autoSelectWhenEmpty)
+            return _monitor.Selected;
+
+        return null;
+    }
+
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
-        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 88 : Height);
+        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 292 : Width);
+        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 58 : Height);
 
         // Restore saved position only if it still lands on a connected screen.
         // Multi-monitor setups (laptop docked vs undocked) often leave coords
         // completely off-screen so the app looks like it "won't start".
-        if (_settings.WindowX is double sx && _settings.WindowY is double sy)
+        if (_initialX is double sx && _initialY is double sy)
         {
             var candidate = new PixelPoint((int)sx, (int)sy);
             if (IsMostlyOnAnyScreen(candidate, w, h))
@@ -114,43 +150,39 @@ public partial class OverlayWindow : Window
 
     private void Render()
     {
-        var device = _monitor.Selected;
+        var device = ResolveDevice();
         var low = _settings.LowBatteryThreshold;
+
+        // If auto-select found a device, remember its stable key so Switch/Dup stay consistent.
+        if (device is not null && string.IsNullOrEmpty(_selectedDeviceId) && _autoSelectWhenEmpty)
+            _selectedDeviceId = device.StableKey;
 
         if (device is null)
         {
             PercentText.Text = "--";
             PercentText.Foreground = BatteryColors.ForPercent(null, low, true);
             DeviceText.Text = _monitor.Devices.Count == 0
-                ? $"No devices ({_monitor.PlatformName})"
-                : "Click Switch to choose a device";
-            HintText.Text = "Connect a controller, mouse, or BT peripheral";
+                ? "No devices"
+                : "No device selected";
             return;
         }
 
         PercentText.Text = device.Percent is int p ? $"{p}%" : "??%";
         PercentText.Foreground = BatteryColors.ForPercent(device.Percent, low, !device.IsPresent);
 
-        var kind = device.Kind is null ? "" : $" · {device.Kind}";
-        var charge = device.IsCharging ? " · charging" : "";
-        var offline = device.IsPresent ? "" : " · offline";
-        DeviceText.Text = $"{device.Name}{kind}{charge}{offline}";
-
-        if (!device.IsPresent)
-            HintText.Text = "Link lost — keeping last reading; will refresh on reconnect";
-        else if (device.Percent is int pct && pct <= low)
-            HintText.Text = "Low battery — good time to swap before a fight";
-        else
-            HintText.Text = "Drag to move · Switch or Exit anytime";
+        // Compact: name + connection only (keeps footprint small for gameplay)
+        var link = device.IsPresent ? "connected" : "disconnected";
+        DeviceText.Text = $"{device.Name} · {link}";
     }
 
     private async void OnSwitchClick(object? sender, RoutedEventArgs e)
     {
         _monitor.Refresh();
 
+        var currentId = _selectedDeviceId ?? ResolveDevice()?.Id;
         var picker = new DevicePickerWindow(
             _monitor.Devices,
-            _monitor.SelectedDeviceId ?? _monitor.Selected?.Id,
+            currentId,
             () =>
             {
                 _monitor.Refresh();
@@ -166,28 +198,47 @@ public partial class OverlayWindow : Window
 
         if (result == DevicePickerWindow.ClearSelectionId)
         {
-            _monitor.SelectedDeviceId = null;
-            _settings.SelectedDeviceId = null;
+            _selectedDeviceId = null;
+            _autoSelectWhenEmpty = false;
         }
         else
         {
             // Prefer durable stable key when available so Windows id churn doesn't drop selection
             var picked = _monitor.Devices.FirstOrDefault(d => d.Id == result);
-            var storeId = picked?.StableKey ?? result;
-            _monitor.SelectedDeviceId = storeId;
-            _settings.SelectedDeviceId = storeId;
+            _selectedDeviceId = picked?.StableKey ?? result;
+            _autoSelectWhenEmpty = false;
         }
 
-        _settingsService.Save(_settings);
+        PersistSettings();
         Render();
+    }
+
+    private void OnDupClick(object? sender, RoutedEventArgs e)
+    {
+        // New widget shares the poller; user picks another device via Switch on the copy.
+        _onDuplicate?.Invoke(this);
+    }
+
+    private void OnTimeClick(object? sender, RoutedEventArgs e)
+    {
+        // Secondary hologram clock — independent of battery device selection.
+        _onShowClock?.Invoke();
     }
 
     private void OnExitClick(object? sender, RoutedEventArgs e)
     {
-        // Overlay has no system chrome; Exit is the primary way to quit.
-        // Closing the main window shuts down the classic desktop lifetime
-        // and runs Closing → PersistSettings + App desktop.Exit cleanup.
+        // Overlay has no system chrome; Exit closes this widget only.
+        // Last remaining widget triggers app shutdown (OnLastWindowClose).
         Close();
+    }
+
+    private async void OnBugClick(object? sender, RoutedEventArgs e)
+    {
+        var dlg = new BugReportWindow
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        await dlg.ShowDialog<bool?>(this);
     }
 
     private static bool IsOverButton(Visual? source, Button button) =>
@@ -195,7 +246,12 @@ public partial class OverlayWindow : Window
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Source is Visual v && (IsOverButton(v, SwitchButton) || IsOverButton(v, ExitButton)))
+        if (e.Source is Visual v &&
+            (IsOverButton(v, SwitchButton) ||
+             IsOverButton(v, DupButton) ||
+             IsOverButton(v, TimeButton) ||
+             IsOverButton(v, BugButton) ||
+             IsOverButton(v, ExitButton)))
             return;
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -227,9 +283,12 @@ public partial class OverlayWindow : Window
 
     private void PersistSettings()
     {
-        _settings.WindowX = Position.X;
-        _settings.WindowY = Position.Y;
-        _settings.SelectedDeviceId = _monitor.SelectedDeviceId;
-        _settingsService.Save(_settings);
+        if (_onPersist is not null)
+        {
+            _onPersist();
+            return;
+        }
+
+        // Design-time / standalone: no host — nothing shared to save.
     }
 }

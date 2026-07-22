@@ -28,6 +28,11 @@ pull_before_scan = true
 auto_check_on_pr = true
 # How often daemon pulls origin (seconds) so laptop pushes are seen without local edits
 remote_poll_seconds = 30
+# Never work these (teacher jokes / nonsense)
+ignore = [
+  '(?i)monkey.*voice',
+  '(?i)doesn.?t have a voice',
+]
 
 [patterns]
 include = [

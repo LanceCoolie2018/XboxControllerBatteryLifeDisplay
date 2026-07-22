@@ -7,18 +7,21 @@ namespace BatteryHUD.Services;
 /// Only devices with a reported battery % are listed.
 /// Keeps recently-seen (with %) devices through a short grace window so
 /// flaky BT/WMI polls don't blank the HUD mid-game.
-/// Disconnects on the first miss / IsPresent=false; reconnects only after
-/// consecutive present polls so stale stack ghosts don't flap "online".
+/// Disconnects on the first successful miss / IsPresent=false; (re)connects
+/// only after consecutive present polls — including first sightings — so
+/// stale BT/WMI/sysfs ghosts cannot flap or stick "connected" while the
+/// controller is off. Provider hard-failures leave presence unchanged within
+/// the grace window so brief WMI blips do not force a false disconnect.
 /// </summary>
 public sealed class BatteryMonitorService : IDisposable
 {
     /// <summary>
     /// How many consecutive polls must report the device present before we
-    /// flip offline → online (or accept a first sighting as online).
-    /// One poll is enough to go offline.
-    /// At the default 3s interval this is ~9s of stable presence.
+    /// flip offline → online (including first sightings).
+    /// One successful poll is enough to go offline.
+    /// At the default 3s interval this is ~6s of stable presence to (re)connect.
     /// </summary>
-    private const int ReconnectConfirmPolls = 3;
+    private const int ReconnectConfirmPolls = 2;
 
     private readonly IBatteryDeviceProvider _provider;
     private readonly object _gate = new();
@@ -61,36 +64,55 @@ public sealed class BatteryMonitorService : IDisposable
         {
             lock (_gate)
             {
-                var withPercent = _tracked.Values
-                    .Select(t => t.Device)
-                    .Where(d => d.Percent is not null)
-                    .ToList();
+                var match = FindDeviceLocked(_selectedId);
+                if (match is not null)
+                    return match;
 
+                var withPercent = DevicesWithPercentLocked();
                 if (withPercent.Count == 0) return null;
 
-                if (!string.IsNullOrEmpty(_selectedId))
-                {
-                    // Exact id
-                    if (_tracked.TryGetValue(_selectedId, out var exact) &&
-                        exact.Device.Percent is not null)
-                        return exact.Device;
-
-                    // Fuzzy: same stable key / name (Windows ids can shift)
-                    var fuzzy = withPercent.FirstOrDefault(d =>
-                        string.Equals(d.StableKey, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(d.Id, _selectedId, StringComparison.OrdinalIgnoreCase) ||
-                        (!string.IsNullOrEmpty(d.Address) &&
-                         _selectedId.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
-                    if (fuzzy is not null)
-                        return fuzzy;
-                }
-
+                // Auto-pick only when nothing is stored (first run / single-widget legacy)
                 return withPercent.FirstOrDefault(d => d.Kind == "Controller")
                        ?? withPercent.FirstOrDefault(d => d.IsPresent)
                        ?? withPercent.FirstOrDefault();
             }
         }
     }
+
+    /// <summary>
+    /// Resolve a stored id/stable key to a tracked device with a battery %.
+    /// Does not auto-pick — used by multi-widget overlays that each hold their own selection.
+    /// </summary>
+    public BatteryDevice? FindDevice(string? id)
+    {
+        lock (_gate)
+            return FindDeviceLocked(id);
+    }
+
+    private BatteryDevice? FindDeviceLocked(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+            return null;
+
+        var withPercent = DevicesWithPercentLocked();
+        if (withPercent.Count == 0) return null;
+
+        if (_tracked.TryGetValue(id, out var exact) && exact.Device.Percent is not null)
+            return exact.Device;
+
+        // Fuzzy: same stable key / name (Windows ids can shift)
+        return withPercent.FirstOrDefault(d =>
+            string.Equals(d.StableKey, id, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(d.Address) &&
+             id.Contains(d.Address, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private List<BatteryDevice> DevicesWithPercentLocked() =>
+        _tracked.Values
+            .Select(t => t.Device)
+            .Where(d => d.Percent is not null)
+            .ToList();
 
     public string? SelectedDeviceId
     {
@@ -115,21 +137,24 @@ public sealed class BatteryMonitorService : IDisposable
     public void Refresh()
     {
         List<BatteryDevice> snapshot;
+        bool providerHardFail;
         try
         {
             // Hard filter: never track devices without a %
             snapshot = _provider.GetDevices()
                 .Where(d => d.Percent is not null)
                 .ToList();
+            providerHardFail = false;
         }
         catch
         {
-            // Provider failed hard — keep previous list, just age it
+            // Provider threw (e.g. WMI ManagementException) — keep prior presence/%
+            // for a short window; do not treat a single throw as a disconnect.
+            providerHardFail = true;
             snapshot = [];
         }
 
         var now = DateTimeOffset.UtcNow;
-        var providerFailedEmpty = snapshot.Count == 0;
 
         lock (_gate)
         {
@@ -140,9 +165,22 @@ public sealed class BatteryMonitorService : IDisposable
                     _tracked.Remove(kv.Key);
             }
 
-            if (providerFailedEmpty && _tracked.Count > 0)
+            if (providerHardFail)
             {
-                // Don't wipe the list on a blank poll (common BT/WMI blip)
+                // Sticky only within grace from last confirmed presence.
+                // A long-lived WMI outage after a real power-off must not leave
+                // the HUD saying "connected" forever.
+                foreach (var t in _tracked.Values)
+                {
+                    if (t.Device.IsPresent && now - t.LastSeen > _grace)
+                        MarkAbsent(t);
+                }
+
+                PruneExpired(now);
+            }
+            else if (snapshot.Count == 0 && _tracked.Count > 0)
+            {
+                // Successful empty poll: every tracked device is gone → disconnect now
                 foreach (var t in _tracked.Values)
                     MarkAbsent(t);
                 PruneExpired(now);
@@ -190,19 +228,20 @@ public sealed class BatteryMonitorService : IDisposable
                         }
                         else
                         {
-                            // First sighting: still require confirm polls before "online".
-                            // After grace prune, a single BT/WMI ghost would otherwise
-                            // reappear as instantly connected while the pad is still off.
+                            // First sighting (or reappear after grace prune): never
+                            // trust a single present poll — WMI/UPower/sysfs often
+                            // keep a cached % + "present" while the pad is off.
+                            // Start offline and require ReconnectConfirmPolls.
                             var tracked = new TrackedDevice
                             {
-                                Device = device with { IsPresent = false },
-                                LastSeen = now,
+                                Device = device with { IsPresent = false, IsCharging = false },
+                                // Unconfirmed ghosts must not look "freshly seen present"
+                                // or grace never expires while the pad stays off.
+                                LastSeen = now - _grace,
                                 PresentStreak = 0
                             };
                             if (device.IsPresent)
                                 ApplyObservation(tracked, device, now);
-                            else
-                                tracked.Device = device;
                             _tracked[key] = tracked;
                         }
                     }

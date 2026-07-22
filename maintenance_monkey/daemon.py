@@ -83,6 +83,22 @@ class Daemon:
                             self.user_report._pending_since = None
                         except OSError:
                             pass
+                    # Clear Ready-for-Review / Failed when issues resolve or "task complete"
+                    try:
+                        from maintenance_monkey.pipeline.acknowledge import (
+                            cancel_closed_user_report_jobs,
+                            clear_resolved_failures,
+                            process_task_complete_commits,
+                        )
+
+                        for msg in process_task_complete_commits(cfg, self.state):
+                            log.info("%s", msg)
+                        for msg in clear_resolved_failures(cfg, self.state):
+                            log.info("%s", msg)
+                        for msg in cancel_closed_user_report_jobs(cfg, self.state):
+                            log.info("%s", msg)
+                    except Exception:
+                        log.exception("ack/resolve scan failed")
                     for msg in scan_user_report(
                         cfg, self.state, trigger="remote_poll"
                     ):
@@ -94,6 +110,26 @@ class Daemon:
                         log.info("%s", msg)
                 for msg in self.user_report.poll(now):
                     log.info("%s", msg)
+                # Drop jobs for closed UserReport items before starting more work
+                try:
+                    from maintenance_monkey.pipeline.acknowledge import (
+                        cancel_closed_user_report_jobs,
+                    )
+
+                    for msg in cancel_closed_user_report_jobs(cfg, self.state):
+                        log.info("%s", msg)
+                except Exception:
+                    log.exception("cancel closed jobs failed")
+                # Finish/fail jobs stuck after Grok exited or daemon restarted
+                try:
+                    from maintenance_monkey.dispatch.orphan_recovery import (
+                        recover_orphaned_jobs,
+                    )
+
+                    for msg in recover_orphaned_jobs(cfg, self.state):
+                        log.info("%s", msg)
+                except Exception:
+                    log.exception("orphan recovery failed")
                 for msg in self.runner.process_queue():
                     log.info("%s", msg)
                 time.sleep(1.0)

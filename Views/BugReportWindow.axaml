@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BatteryHUD.Views.BugReportWindow"
+        Title="Report a bug"
+        Width="380" Height="220"
+        MinWidth="300" MinHeight="180"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="Full"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="#F01E1E1E">
+
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top"
+               Text="Report a bug"
+               FontSize="18"
+               FontWeight="SemiBold"
+               Margin="0,0,0,4" />
+    <TextBlock DockPanel.Dock="Top"
+               Text="Adds an open item to UserReport.md so Maintenance Monkey can pick it up. No need to edit the file by hand."
+               TextWrapping="Wrap"
+               Opacity="0.75"
+               Margin="0,0,0,12" />
+
+    <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
+      <TextBlock x:Name="StatusText"
+                 TextWrapping="Wrap"
+                 Foreground="#EF9A9A"
+                 IsVisible="False" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="Cancel" Click="OnCancel" IsCancel="True" />
+        <Button x:Name="SubmitButton" Content="Add to UserReport" Click="OnSubmit" IsDefault="True" />
+      </StackPanel>
+    </StackPanel>
+
+    <TextBox x:Name="DescriptionBox"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             Watermark="What went wrong?"
+             MinHeight="64" />
+  </DockPanel>
+</Window>
+

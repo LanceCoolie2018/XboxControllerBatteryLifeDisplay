@@ -42,6 +42,15 @@ class GrokRunner:
             self.state.update_job(job.id, status="failed", error="incident missing")
             return f"job {job.id}: missing incident"
 
+        # Bail out if UserReport item was closed while this job waited
+        if incident.source == "user_report" and self._user_report_item_closed(incident):
+            self.state.update_job(
+                job.id,
+                status="cancelled",
+                error="UserReport item closed before run",
+            )
+            return f"job {job.id}: cancelled — UserReport item already closed"
+
         log.info("running job %s: %s", job.id, incident.title)
         self.state.update_job(job.id, status="running")
 
@@ -112,6 +121,24 @@ class GrokRunner:
                 self.state.update_job(job.id, pr_url=pr_url)
 
             self.state.update_job(job.id, status="done")
+            # Failed section: drop older failures for the same fingerprint
+            try:
+                from maintenance_monkey.pipeline.acknowledge import (
+                    archive_failed_for_fingerprint,
+                )
+
+                n = archive_failed_for_fingerprint(
+                    self.state, incident.fingerprint, by_job=job.id
+                )
+                if n:
+                    log.info(
+                        "archived %s failed job(s) for fingerprint %s",
+                        n,
+                        incident.fingerprint,
+                    )
+            except Exception:
+                log.exception("could not archive superseded failures")
+
             try:
                 git_workflow.remove_worktree(self.cfg, worktree)
             except Exception:
@@ -131,6 +158,21 @@ class GrokRunner:
             log.exception("job %s failed", job.id)
             self.state.update_job(job.id, status="failed", error=str(e))
             return f"job {job.id}: failed: {e}"
+
+    def _user_report_item_closed(self, incident: Incident) -> bool:
+        """True if the checklist item is no longer an open - [ ] line."""
+        from maintenance_monkey.sensors.user_report import open_items
+
+        path = self.cfg.project.root / self.cfg.user_report.path
+        if not path.is_file():
+            return False
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            opens, _ = open_items(text)
+        except OSError:
+            return False
+        open_fps = {i.fingerprint for i in opens}
+        return incident.fingerprint not in open_fps
 
     def _auto_check_user_report(self, incident: Incident, worktree: Path) -> str:
         """Mark the checklist item done in worktree UserReport.md if enabled."""

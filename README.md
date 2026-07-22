@@ -18,8 +18,11 @@ You are in a match. Your controller is about to die. BatteryHUD sits in the corn
 - **% only** — picker lists only devices the OS reports a battery percentage for (no ghosts)
 - **Sticky readings** — brief BT/WMI blips keep the last % through a short grace window
 - **Choose + switch anytime** — device picker, selection remembered by stable key
+- **Duplicate widgets** — **Dup** opens another overlay so you can watch two devices at once
+- **Hologram clock** — **Time** opens a secondary cyan “3D hologram” clock you can drag to any screen
 - **Gaming-focused HUD**: large %, color bands, low-battery pulse, “swap before a fight” hint
-- **Drag to position**; remembers window placement
+- **Drag to position**; remembers window placement (per widget / clock)
+- **Bug button** — appends an open checklist item to `UserReport.md` (no hand-editing)
 
 ## Battery % caveats
 
@@ -76,7 +79,11 @@ dotnet publish BatteryHUD.csproj -c Release -r win-x64 --self-contained true -o 
 2. Click **Switch**.
 3. Select your controller (or mouse/headset).
 4. Drag the HUD where it will not block your game UI.
-5. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
+5. Optional: click **Dup** for a second widget, then **Switch** on the copy to watch another device.
+6. Optional: click **Time** for a draggable hologram-style clock (position remembered across launches).
+7. When it turns orange/red or pulses **LOW**, swap batteries between rounds.
+
+**Exit** closes that battery widget only; closing the last battery widget quits the app (and the clock). All open widgets (device + position) and the clock are saved in settings.
 
 Settings are stored in your user app data folder under `BatteryHUD/settings.json`.
 
@@ -102,7 +109,7 @@ This branch includes [Maintenance Monkey](https://github.com/LanceCoolie2018/mai
 | App error log | `logs/batteryhud.log` (created at runtime by `FileLog`) |
 | Config | `mm.toml` |
 
-**Laptop (you):** run BatteryHUD as usual. Edit `UserReport.md`, commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
+**Laptop (you):** run BatteryHUD as usual. Use the HUD **Bug** button (or edit `UserReport.md` by hand), commit, push to **`AssIsstant`**. After first clone, once: `python3 -m maintenance_monkey install-hooks` (with `PYTHONPATH` set to the repo root).
 
 **Pi (daemon):**
 

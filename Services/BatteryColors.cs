@@ -10,6 +10,7 @@ public static class BatteryColors
         if (disconnected || percent is null)
             return Brush("#FF5252"); // red
 
+        // Green/yellow/orange traffic-light palette (preferred over solid blue).
         return percent.Value switch
         {
             var p when p <= lowThreshold => Brush("#FF1744"),
