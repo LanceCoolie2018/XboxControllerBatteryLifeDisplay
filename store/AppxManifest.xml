@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <!-- Partner Center App identity (must match exactly) -->
+  <Identity
+    Name="LanceCoolie.BatteryHUD"
+    Publisher="CN=38612EE3-4B41-491B-A977-4F01F5A3F473"
+    Version="1.0.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>BatteryHUD</DisplayName>
+    <PublisherDisplayName>LanceCoolie</PublisherDisplayName>
+    <Description>Always-on-top battery overlay for controllers, mice, and other peripherals.</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+                 Executable="BatteryHUD.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="BatteryHUD"
+        Description="Always-on-top battery overlay for game controllers and peripherals — swap packs before mid-fight death."
+        BackgroundColor="#1E1E1E"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
+                         Square71x71Logo="Assets\Square44x44Logo.png"
+                         ShortName="BatteryHUD" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#1E1E1E" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
