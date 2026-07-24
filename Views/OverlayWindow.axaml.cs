@@ -54,6 +54,7 @@ public partial class OverlayWindow : Window
         _initialY = slot.WindowY;
 
         InitializeComponent();
+        ApplyAlwaysOnTop();
 
         _monitor.Updated += (_, _) => Dispatcher.UIThread.Post(Render);
 
@@ -73,6 +74,14 @@ public partial class OverlayWindow : Window
         Closing += (_, _) => PersistSettings();
 
         Render();
+    }
+
+    /// <summary>Apply shared always-on-top preference (standard Avalonia Window.Topmost).</summary>
+    public void ApplyAlwaysOnTop()
+    {
+        Topmost = _settings.AlwaysOnTop;
+        if (PinButton is not null)
+            PinButton.Content = _settings.AlwaysOnTop ? "Unpin" : "Pin";
     }
 
     /// <summary>Snapshot of this widget for multi-slot settings persistence.</summary>
@@ -162,17 +171,39 @@ public partial class OverlayWindow : Window
             PercentText.Text = "--";
             PercentText.Foreground = BatteryColors.ForPercent(null, low, true);
             DeviceText.Text = _monitor.Devices.Count == 0
-                ? "No devices"
+                ? "No devices — pair Bluetooth in Windows Settings"
                 : "No device selected";
             return;
         }
 
-        PercentText.Text = device.Percent is int p ? $"{p}%" : "??%";
-        PercentText.Foreground = BatteryColors.ForPercent(device.Percent, low, !device.IsPresent);
+        if (!device.IsPresent)
+        {
+            PercentText.Text = device.Percent is int last ? $"{last}%" : "—";
+            PercentText.Foreground = BatteryColors.ForPercent(device.Percent, low, true);
+            DeviceText.Text = $"{device.Name} · disconnected";
+            return;
+        }
 
-        // Compact: name + connection only (keeps footprint small for gameplay)
-        var link = device.IsPresent ? "connected" : "disconnected";
-        DeviceText.Text = $"{device.Name} · {link}";
+        if (device.Percent is int p)
+        {
+            PercentText.Text = $"{p}%";
+            PercentText.Foreground = BatteryColors.ForPercent(p, low, false);
+            DeviceText.Text = $"{device.Name} · connected";
+        }
+        else
+        {
+            PercentText.Text = "N/A";
+            PercentText.Foreground = BatteryColors.ForPercent(null, low, false);
+            DeviceText.Text = $"{device.Name} · Battery not reported";
+        }
+    }
+
+    private void OnPinClick(object? sender, RoutedEventArgs e)
+    {
+        _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
+        ApplyAlwaysOnTop();
+        PersistSettings();
+        // Host re-applies to all widgets + clock when PersistAll runs.
     }
 
     private async void OnSwitchClick(object? sender, RoutedEventArgs e)
@@ -247,7 +278,8 @@ public partial class OverlayWindow : Window
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.Source is Visual v &&
-            (IsOverButton(v, SwitchButton) ||
+            (IsOverButton(v, PinButton) ||
+             IsOverButton(v, SwitchButton) ||
              IsOverButton(v, DupButton) ||
              IsOverButton(v, TimeButton) ||
              IsOverButton(v, BugButton) ||

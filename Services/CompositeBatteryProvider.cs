@@ -48,13 +48,11 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
                .Select(d => NormalizeName(d.Name)),
             StringComparer.OrdinalIgnoreCase);
 
-        // Keep null-% offline markers (BlueZ paired-but-disconnected) in the
-        // group so they can veto stale UPower/sysfs "present" readings.
+        // Keep null-% devices (paired BT with no battery service) and offline
+        // markers so Switch can list them; BlueZ offline can still veto ghosts.
         return all
-            .Where(d => d.Percent is not null || !d.IsPresent)
             .GroupBy(d => d.StableKey, StringComparer.OrdinalIgnoreCase)
             .Select(MergeGroup)
-            .Where(d => d.Percent is not null)
             .Select(d =>
             {
                 if (!d.IsPresent)
@@ -138,7 +136,7 @@ public sealed class CompositeBatteryProvider : IBatteryDeviceProvider
         var address = group.Select(d => d.Address).FirstOrDefault(a => !string.IsNullOrEmpty(a));
         var kind = group.Select(d => d.Kind).FirstOrDefault(k => !string.IsNullOrEmpty(k));
         var name = group
-            .Where(d => d.Percent is not null)
+            .OrderByDescending(d => d.Percent.HasValue)
             .Select(d => d.Name)
             .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? best.Name;
 

@@ -24,6 +24,10 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
     private readonly object _gate = new();
     private readonly HashSet<string> _knownBatteryIds = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>
+    /// Peripheral device IDs we list even without a battery % (re-listed on light polls).
+    /// </summary>
+    private readonly HashSet<string> _listedPeripheralIds = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
     /// Device IDs where GetDeviceProperties threw or returned no battery property.
     /// Avoid re-invoking WMI on them every poll (ManagementException spam).
     /// </summary>
@@ -50,12 +54,13 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
         int poll;
         HashSet<string> known;
         HashSet<string> skip;
+        HashSet<string> listedPeripherals;
         bool deepScan;
         lock (_gate)
         {
             poll = ++_pollCount;
             // Every 5th poll (~15s at 3s interval): broader discovery.
-            // Other polls: only re-check known battery devices (no new probes).
+            // Other polls: re-check known battery devices + re-list known peripherals.
             deepScan = poll == 1 || poll % 5 == 0;
             if (deepScan)
             {
@@ -68,6 +73,7 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
 
             known = new HashSet<string>(_knownBatteryIds, StringComparer.OrdinalIgnoreCase);
             skip = new HashSet<string>(_skipProbeIds, StringComparer.OrdinalIgnoreCase);
+            listedPeripherals = new HashSet<string>(_listedPeripheralIds, StringComparer.OrdinalIgnoreCase);
         }
 
         try
@@ -126,21 +132,23 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                     }
                     catch { /* ignore */ }
 
-                    // Light poll: only re-read devices that already report a battery %.
-                    // Deep scan: probe new candidates, but never re-hit the skip list
-                    // (those previously threw ManagementException or had no battery key).
-                    var isKnown = known.Contains(deviceId);
+                    // Light poll: re-read known battery devices; re-list known peripherals.
+                    // Deep scan: probe new candidates (skip list avoids GetDeviceProperties spam).
+                    var isKnownBattery = known.Contains(deviceId);
+                    var isListedPeripheral = listedPeripherals.Contains(deviceId);
+                    var looksPeripheral =
+                        pnpClass is "Bluetooth" or "HIDClass" or "Mouse" or "Keyboard" ||
+                        LooksLikePeripheral(name);
+
                     bool shouldProbe;
-                    if (isKnown)
+                    if (isKnownBattery)
                         shouldProbe = true;
                     else if (!deepScan)
                         shouldProbe = false;
                     else if (skip.Contains(deviceId))
                         shouldProbe = false;
                     else
-                        shouldProbe =
-                            pnpClass is "Bluetooth" or "HIDClass" or "Mouse" or "Keyboard" ||
-                            LooksLikePeripheral(name);
+                        shouldProbe = looksPeripheral;
 
                     int? percent = null;
                     bool? devNodeConnected = null;
@@ -152,10 +160,11 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                             lock (_gate)
                             {
                                 _knownBatteryIds.Add(deviceId!);
+                                _listedPeripheralIds.Add(deviceId!);
                                 _skipProbeIds.Remove(deviceId!);
                             }
                         }
-                        else if (!isKnown)
+                        else if (!isKnownBattery)
                         {
                             // No battery key or InvokeMethod failed — do not call again every poll.
                             lock (_gate)
@@ -163,14 +172,20 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
                         }
                     }
 
-                    // Only list devices that actually report a charge percentage.
-                    // No percent → ghost / noise (paired HID shells, radios, dongles).
-                    if (percent is null)
+                    // List Bluetooth/HID peripherals even when Windows never reports %.
+                    // (Tester report: paired BT device missing from Switch list entirely.)
+                    var includeWithoutBattery = looksPeripheral || isListedPeripheral || isKnownBattery;
+                    if (percent is null && !includeWithoutBattery)
                         continue;
 
+                    if (includeWithoutBattery)
+                    {
+                        lock (_gate)
+                            _listedPeripheralIds.Add(deviceId!);
+                    }
+
                     // Presence: PnP working + no CM error + Present flag, and when
-                    // DEVPKEY_Device_IsConnected is available it must not be false
-                    // (stops false "connected" while battery % is still cached).
+                    // DEVPKEY_Device_IsConnected is available it must not be false.
                     var isPresent = statusOk && cmError == 0 && pnpPresent;
                     if (devNodeConnected == false)
                         isPresent = false;
@@ -221,7 +236,10 @@ public sealed class WindowsWmiBatteryProvider : IBatteryDeviceProvider
 
         return results
             .GroupBy(d => d.StableKey, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.OrderByDescending(d => d.Percent.HasValue).ThenByDescending(d => d.IsPresent).First())
+            .Select(g => g
+                .OrderByDescending(d => d.Percent.HasValue)
+                .ThenByDescending(d => d.IsPresent)
+                .First())
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

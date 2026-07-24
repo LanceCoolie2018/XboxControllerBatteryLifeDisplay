@@ -9,13 +9,13 @@
   <Identity
     Name="LanceCoolie.BatteryHUD"
     Publisher="CN=38612EE3-4B41-491B-A977-4F01F5A3F473"
-    Version="1.0.0.0"
+    Version="1.0.1.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>BatteryHUD</DisplayName>
     <PublisherDisplayName>LanceCoolie</PublisherDisplayName>
-    <Description>Always-on-top battery overlay for controllers, mice, and other peripherals.</Description>
+    <Description>Battery overlay for controllers, mice, and other peripherals. Optional always-on-top; lists paired devices even when battery % is not reported by Windows.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -33,7 +33,7 @@
                  EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="BatteryHUD"
-        Description="Always-on-top battery overlay for game controllers and peripherals — swap packs before mid-fight death."
+        Description="Battery overlay HUD for game controllers and peripherals. Optional pin-on-top; shows Battery not reported when Windows has no charge data."
         BackgroundColor="#1E1E1E"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
@@ -45,6 +45,11 @@
     </Application>
   </Applications>
 
+  <!--
+    runFullTrust: required for desktop bridge (.NET/Avalonia Win32 + WMI).
+    Not used for always-on-top (that is Window.Topmost, off by default).
+    Declare as full-trust desktop app in Partner Center if prompted.
+  -->
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>

@@ -7,10 +7,12 @@ public static class BatteryColors
 {
     public static IBrush ForPercent(int? percent, int lowThreshold, bool disconnected)
     {
-        if (disconnected || percent is null)
-            return Brush("#FF5252"); // red
+        if (disconnected)
+            return Brush("#FF5252"); // red — link down
+        if (percent is null)
+            return Brush("#B0BEC5"); // neutral — device present, OS has no battery %
 
-        // Green/yellow/orange traffic-light palette (preferred over solid blue).
+        // Green/yellow/orange traffic-light palette.
         return percent.Value switch
         {
             var p when p <= lowThreshold => Brush("#FF1744"),
@@ -27,7 +29,7 @@ public static class BatteryColors
         if (!device.IsPresent)
             return "Disconnected";
         if (device.Percent is null)
-            return "Battery ?";
+            return "Battery not reported";
         if (device.Percent <= lowThreshold)
             return $"LOW {device.Percent}%";
         return device.StatusText;

@@ -1,6 +1,6 @@
 # BatteryHUD
 
-Always-on-top battery overlay for **game controllers, Bluetooth mice, keyboards, headsets** — anything your OS reports a charge percentage for.
+Battery overlay HUD for **game controllers, Bluetooth mice, keyboards, headsets**, and other paired devices. Shows charge % when Windows reports it; devices without battery data still appear as **Battery not reported**. Optional **Pin** for always-on-top (off by default).
 
 Built so you can glance at battery life **while playing** and swap packs *before* the pad dies mid-fight.
 

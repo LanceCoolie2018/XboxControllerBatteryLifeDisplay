@@ -6,7 +6,7 @@
         MinWidth="120" MinHeight="90"
         CanResize="False"
         SystemDecorations="None"
-        Topmost="True"
+        Topmost="False"
         ShowInTaskbar="False"
         TransparencyLevelHint="Transparent"
         Background="Transparent"

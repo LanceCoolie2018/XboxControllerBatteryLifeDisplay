@@ -12,12 +12,12 @@
 
   <DockPanel Margin="16">
     <TextBlock DockPanel.Dock="Top"
-               Text="Watch battery for"
+               Text="Choose device"
                FontSize="18"
                FontWeight="SemiBold"
                Margin="0,0,0,4" />
     <TextBlock DockPanel.Dock="Top"
-               Text="Pick the controller (or mouse/headset) you care about mid-game. You can switch anytime from the HUD."
+               Text="Paired Bluetooth and HID devices are listed even when Windows does not report a battery percentage (shown as “Battery not reported” / N/A). Pick the device you want on the HUD — you can switch anytime."
                TextWrapping="Wrap"
                Opacity="0.75"
                Margin="0,0,0,12" />
@@ -39,11 +39,12 @@
               <TextBlock Text="{Binding Subtitle}" Opacity="0.7" FontSize="12" />
             </StackPanel>
             <TextBlock Grid.Column="1"
-                       Text="{Binding StatusText}"
+                       Text="{Binding PercentDisplay}"
                        FontSize="16"
                        FontWeight="Bold"
                        VerticalAlignment="Center"
-                       Margin="12,0,0,0" />
+                       Margin="12,0,0,0"
+                       ToolTip.Tip="{Binding StatusText}" />
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>

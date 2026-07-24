@@ -27,6 +27,12 @@ public sealed class AppSettings
     public int LowBatteryThreshold { get; set; } = 15;
 
     /// <summary>
+    /// Keep battery widgets (and the clock) above other windows.
+    /// Off by default — standard Avalonia <c>Window.Topmost</c> only; no elevated privileges.
+    /// </summary>
+    public bool AlwaysOnTop { get; set; }
+
+    /// <summary>
     /// One entry per overlay widget so multiple devices can be watched at once.
     /// Empty list means migrate from <see cref="SelectedDeviceId"/> / WindowX/Y.
     /// </summary>

@@ -91,8 +91,12 @@ public sealed class WidgetHost
             _settings.ClockWindowX = _clock.WindowX;
             _settings.ClockWindowY = _clock.WindowY;
             _settings.HologramClockStyle = _clock.StyleName;
+            _clock.Topmost = _settings.AlwaysOnTop;
         }
         // When clock is closed, ShowHologramClock is cleared in OnClockClosed.
+
+        foreach (var w in _windows)
+            w.ApplyAlwaysOnTop();
 
         _settingsService.Save(_settings);
     }
@@ -104,7 +108,7 @@ public sealed class WidgetHost
             if (show)
             {
                 _clock.Activate();
-                _clock.Topmost = true;
+                _clock.Topmost = _settings.AlwaysOnTop;
             }
             return;
         }
@@ -115,7 +119,10 @@ public sealed class WidgetHost
             _settings.EdgePadding,
             _settings.HologramClockStyle,
             onPersist: PersistAll,
-            onClosedByUser: OnClockClosed);
+            onClosedByUser: OnClockClosed)
+        {
+            Topmost = _settings.AlwaysOnTop
+        };
 
         if (_desktop.MainWindow is null)
             _desktop.MainWindow = _clock;

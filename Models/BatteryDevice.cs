@@ -2,7 +2,8 @@ namespace BatteryHUD.Models;
 
 /// <summary>
 /// A peripheral (or system) device that may report a battery level.
-/// Controllers, mice, keyboards, headsets — anything the OS exposes.
+/// Controllers, mice, keyboards, headsets — including paired Bluetooth
+/// devices that never expose a charge percentage to Windows.
 /// </summary>
 public sealed record BatteryDevice
 {
@@ -29,6 +30,10 @@ public sealed record BatteryDevice
     public string DisplayName =>
         string.IsNullOrWhiteSpace(Kind) ? Name : $"{Name} ({Kind})";
 
+    /// <summary>Short percent column for the device picker.</summary>
+    public string PercentDisplay =>
+        Percent is int p ? $"{p}%" : "N/A";
+
     public string StatusText
     {
         get
@@ -36,7 +41,7 @@ public sealed record BatteryDevice
             if (!IsPresent)
                 return Percent is int p ? $"Disconnected · last {p}%" : "Disconnected";
             if (Percent is null)
-                return "Connected · no battery %"; // should not appear in the picker
+                return "Connected · Battery not reported";
             var suffix = IsCharging ? " · charging" : "";
             return $"Connected · {Percent}%{suffix}";
         }
@@ -47,6 +52,10 @@ public sealed record BatteryDevice
         get
         {
             var kind = string.IsNullOrWhiteSpace(Kind) ? "Device" : Kind!;
+            if (!IsPresent)
+                return $"{kind} · disconnected";
+            if (Percent is null)
+                return $"{kind} · no battery data from Windows";
             return $"{kind} · {StatusText}";
         }
     }
