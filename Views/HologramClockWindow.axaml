@@ -176,14 +176,19 @@
             <Border Width="8" Height="2" Background="#8840F0FF"
                     HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" IsHitTestVisible="False" />
 
-            <!-- Hands pivot at face center; rotation set in code-behind -->
+            <!--
+              Hands pivot at face center (RenderTransformOrigin bottom-center).
+              With VerticalAlignment=Center, Avalonia subtracts bottom margin from
+              available height first, so bottom margin must equal the hand Height
+              (not Height/2) for the base to sit on the face center with the pin.
+            -->
             <Border x:Name="HourHand"
                     Width="4" Height="28"
                     Background="#FF3A3A"
                     CornerRadius="2"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Margin="0,0,0,14"
+                    Margin="0,0,0,28"
                     RenderTransformOrigin="50%,100%"
                     IsHitTestVisible="False">
               <Border.RenderTransform>
@@ -196,7 +201,7 @@
                     CornerRadius="1.5"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Margin="0,0,0,19"
+                    Margin="0,0,0,38"
                     RenderTransformOrigin="50%,100%"
                     IsHitTestVisible="False">
               <Border.RenderTransform>
@@ -209,7 +214,7 @@
                     CornerRadius="1"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Margin="0,0,0,21"
+                    Margin="0,0,0,42"
                     RenderTransformOrigin="50%,100%"
                     IsHitTestVisible="False">
               <Border.RenderTransform>

@@ -28,6 +28,7 @@
 - [x] the background for the holotime should not be the same color as other text and the original color for the holographic background was fine, the red needs to be brighter too.
 - [x] [UR-gh-20] needs a option for a holo grandfather clock so that people can personalize their space — fixed: Style toggle on hologram clock (Digital / Grandfather analog+pendulum); choice saved in settings
 - [x] [UR-gh-21] the Pin Button should go under the exit button to not cut off the percentage display — fixed: Pin moved to second row under Exit; top row keeps Switch/Dup/Time/Bug/Exit so % is not squeezed
+- [x] [UR-gh-23] center point on grandfather clock does not line up with clock hands — fixed: analog hand bottom margins equal full hand height so pivot matches face center pin
 
 ## Notes
 
