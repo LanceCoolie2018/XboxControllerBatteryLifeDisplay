@@ -188,6 +188,37 @@ class GrokRunner:
 
         except Exception as e:
             log.exception("job %s failed", job.id)
+            # Do not clobber a concurrent/sibling success (e.g. CLI --dispatch
+            # and daemon both ran the same job; second push hits a removed worktree).
+            current = self.state.get_job(job.id)
+            if current and current.status in ("done", "archived"):
+                log.warning(
+                    "job %s already %s — keeping success despite later error: %s",
+                    job.id,
+                    current.status,
+                    e,
+                )
+                return (
+                    f"job {job.id}: already {current.status} "
+                    f"(ignored late error: {e})"
+                )
+            if current and current.pr_url and "not a git repository" in str(e).lower():
+                # Push/PR already happened; worktree was cleaned mid-flight
+                self.state.update_job(
+                    job.id,
+                    status="done",
+                    error=None,
+                    meta={
+                        **(current.meta or {}),
+                        "late_error_ignored": str(e)[:300],
+                    },
+                )
+                log.warning(
+                    "job %s had PR %s — marking done despite worktree push error",
+                    job.id,
+                    current.pr_url,
+                )
+                return f"job {job.id}: done (PR already published; ignored worktree error)"
             self.state.update_job(job.id, status="failed", error=str(e))
             return f"job {job.id}: failed: {e}"
 

@@ -8,7 +8,7 @@
     <AssemblyName>BatteryHUD</AssemblyName>
     <Product>BatteryHUD</Product>
     <Description>Battery overlay for controllers, mice, and other peripherals — shows charge when Windows reports it, and lists paired devices even when battery data is unavailable.</Description>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <ApplicationIcon>Assets/BatteryCharger.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>

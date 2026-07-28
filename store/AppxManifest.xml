@@ -9,7 +9,7 @@
   <Identity
     Name="LanceCoolie.BatteryHUD"
     Publisher="CN=38612EE3-4B41-491B-A977-4F01F5A3F473"
-    Version="1.0.2.0"
+    Version="1.0.3.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
