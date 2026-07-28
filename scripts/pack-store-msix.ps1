@@ -10,7 +10,7 @@ $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
 $publish = Join-Path $Root "publish\win-x64-store"
-$msix = Join-Path $Root "publish\BatteryHUD_1.0.1.0_x64.msix"
+$msix = Join-Path $Root "publish\BatteryHUD_1.0.3.0_x64.msix"
 $manifestSrc = Join-Path $Root "store\AppxManifest.xml"
 $kit = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64"
 $makeappx = Join-Path $kit "MakeAppx.exe"
