@@ -141,6 +141,24 @@ def recover_orphaned_jobs(cfg: Config, state: State) -> list[str]:
                             )
                         except OSError:
                             pass
+                        try:
+                            from maintenance_monkey.sensors.github_issues import (
+                                mark_ready_for_incident,
+                            )
+
+                            ready_msg = mark_ready_for_incident(
+                                cfg,
+                                incident,
+                                job_id=job.id,
+                                pr_url=pr_url or "",
+                            )
+                            if ready_msg:
+                                log.info("%s", ready_msg)
+                        except Exception:
+                            log.exception(
+                                "GitHub issue ready-for-review failed for orphan job %s",
+                                job.id,
+                            )
                     try:
                         git_workflow.remove_worktree(cfg, wt)
                     except Exception:

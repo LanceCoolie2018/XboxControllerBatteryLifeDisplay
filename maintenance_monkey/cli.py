@@ -247,6 +247,16 @@ def cmd_user_report(args: argparse.Namespace) -> int:
 def cmd_github_issues(args: argparse.Namespace) -> int:
     cfg, state = _load(args)
     _setup_logging(cfg, args.verbose)
+    gi_cmd = getattr(args, "gi_cmd", None) or "scan"
+    if gi_cmd == "dismiss":
+        from maintenance_monkey.sensors.github_issues import dismiss_issue
+
+        number = int(args.number)
+        reason = (getattr(args, "reason", None) or "").strip()
+        for m in dismiss_issue(cfg, state, number, reason=reason):
+            print(m)
+        return 0
+
     trigger = getattr(args, "trigger", None) or "manual"
     msgs = scan_github_issues(cfg, state, trigger=trigger)
     for m in msgs:
@@ -519,7 +529,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "github-issues",
-        help="Scan labeled GitHub Issues and enqueue jobs",
+        help="GitHub customer-report Issues (scan / dismiss)",
         parents=[common],
     )
     gi = s.add_subparsers(dest="gi_cmd", required=True)
@@ -531,6 +541,18 @@ def build_parser() -> argparse.ArgumentParser:
     gsc.add_argument("--trigger", default="manual")
     gsc.add_argument("--dispatch", action="store_true", help="Also run queued jobs")
     gsc.set_defaults(func=cmd_github_issues)
+    gdis = gi.add_parser(
+        "dismiss",
+        help="Mark issue as false report: close + label, stop re-queue",
+        parents=[common],
+    )
+    gdis.add_argument("number", type=int, help="GitHub issue number")
+    gdis.add_argument(
+        "--reason",
+        default="",
+        help="Optional note posted on the issue",
+    )
+    gdis.set_defaults(func=cmd_github_issues)
 
     s = sub.add_parser("report", help="File a manual incident", parents=[common])
     s.add_argument("text", nargs="+")

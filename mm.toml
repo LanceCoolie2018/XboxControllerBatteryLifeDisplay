@@ -36,12 +36,24 @@ ignore = [
 
 # Customer Store/source reports filed as GitHub Issues (label customer-report).
 # Maintainer host only — requires `gh auth login`. App never embeds tokens.
+#
+# Lifecycle:
+#   open customer-report → Grok fixes on AssIsstant → label mm-ready-for-review
+#   (issue STAYS OPEN for Ready-for-Review) → you commit "task complete" → close
+# False report:  python -m maintenance_monkey github-issues dismiss 19
+#   or add GitHub label: invalid | wontfix | false-report | mm-dismissed
 [watch.github_issues]
 enabled = true
 repo = "LanceCoolie2018/XboxControllerBatteryLifeDisplay"
 labels = ["customer-report"]
 state = "open"
 poll_seconds = 60
+mark_ready_on_done = true
+ready_label = "mm-ready-for-review"
+dismiss_labels = ["invalid", "wontfix", "false-report", "mm-dismissed"]
+close_on_task_complete = true
+# Do not close when Grok finishes — wait for your task complete review
+auto_close_on_done = false
 
 [patterns]
 include = [
@@ -63,7 +75,7 @@ path = "known_bugs.yaml"
 match_logs = true
 
 [dispatch]
-grok_bin = "grok"
+grok_bin = "/home/lance/.grok/bin/grok"
 max_turns = 80
 max_concurrent_jobs = 1
 cooldown_seconds = 300

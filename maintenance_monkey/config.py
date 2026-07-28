@@ -70,6 +70,23 @@ class GitHubIssuesConfig:
     labels: list[str] = field(default_factory=lambda: ["customer-report"])
     state: str = "open"
     poll_seconds: float = 60.0
+    # After a successful Grok job: label as ready-for-review (issue stays OPEN
+    # until you commit "task complete" and/or merge). Do not close on job done.
+    mark_ready_on_done: bool = True
+    ready_label: str = "mm-ready-for-review"
+    # Labels that mean "do not work this" (false report / won't fix / invalid).
+    dismiss_labels: list[str] = field(
+        default_factory=lambda: [
+            "invalid",
+            "wontfix",
+            "false-report",
+            "mm-dismissed",
+        ]
+    )
+    # When you commit "task complete", close GitHub issues for acked jobs.
+    close_on_task_complete: bool = True
+    # Legacy (ignored for job-done path). Prefer mark_ready_on_done + close_on_task_complete.
+    auto_close_on_done: bool = False
 
 
 @dataclass
@@ -237,6 +254,17 @@ def load_config(root: Path | None = None, path: Path | None = None) -> Config:
             or ["customer-report"],
             state=str(github_issues.get("state") or "open"),
             poll_seconds=float(github_issues.get("poll_seconds", 60)),
+            mark_ready_on_done=bool(github_issues.get("mark_ready_on_done", True)),
+            ready_label=str(
+                github_issues.get("ready_label") or "mm-ready-for-review"
+            ),
+            dismiss_labels=_as_list(github_issues.get("dismiss_labels"))
+            or ["invalid", "wontfix", "false-report", "mm-dismissed"],
+            close_on_task_complete=bool(
+                github_issues.get("close_on_task_complete", True)
+            ),
+            # Legacy: default off — closing happens on task complete, not job done
+            auto_close_on_done=bool(github_issues.get("auto_close_on_done", False)),
         ),
         dispatch=DispatchConfig(
             grok_bin=str(dispatch.get("grok_bin") or "grok"),

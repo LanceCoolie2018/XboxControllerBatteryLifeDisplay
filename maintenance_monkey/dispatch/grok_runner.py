@@ -51,6 +51,17 @@ class GrokRunner:
             )
             return f"job {job.id}: cancelled — UserReport item already closed"
 
+        # Bail out if GitHub Issue was closed / dismissed / already ready-for-review
+        if incident.source == "github_issue":
+            skip, skip_why = self._github_issue_should_skip(incident)
+            if skip:
+                self.state.update_job(
+                    job.id,
+                    status="cancelled",
+                    error=f"GitHub issue skipped: {skip_why}",
+                )
+                return f"job {job.id}: cancelled — {skip_why}"
+
         log.info("running job %s: %s", job.id, incident.title)
         self.state.update_job(job.id, status="running")
 
@@ -139,6 +150,25 @@ class GrokRunner:
             except Exception:
                 log.exception("could not archive superseded failures")
 
+            # Keep issue OPEN; label ready-for-review until task complete / merge
+            ready_msg = ""
+            try:
+                from maintenance_monkey.sensors.github_issues import (
+                    mark_ready_for_incident,
+                )
+
+                ready_msg = mark_ready_for_incident(
+                    self.cfg,
+                    incident,
+                    job_id=job.id,
+                    pr_url=pr_url or "",
+                    summary=grok_text or "",
+                )
+                if ready_msg:
+                    log.info("%s", ready_msg)
+            except Exception:
+                log.exception("GitHub issue ready-for-review failed for job %s", job.id)
+
             try:
                 git_workflow.remove_worktree(self.cfg, worktree)
             except Exception:
@@ -150,6 +180,8 @@ class GrokRunner:
             msg = f"job {job.id}: done → {branch}"
             if check_msg:
                 msg += f" ({check_msg})"
+            if ready_msg:
+                msg += f" ({ready_msg})"
             if pr_url:
                 msg += f" PR {pr_url}"
             return msg
@@ -173,6 +205,19 @@ class GrokRunner:
             return False
         open_fps = {i.fingerprint for i in opens}
         return incident.fingerprint not in open_fps
+
+    def _github_issue_should_skip(self, incident: Incident) -> tuple[bool, str]:
+        """True if linked GitHub issue is closed, dismissed, or ready-for-review."""
+        from maintenance_monkey.sensors.github_issues import issue_should_skip_work
+
+        meta = incident.meta or {}
+        if not isinstance(meta, dict):
+            return False, ""
+        try:
+            number = int(meta.get("issue_number") or 0)
+        except (TypeError, ValueError):
+            return False, ""
+        return issue_should_skip_work(self.cfg, number)
 
     def _auto_check_user_report(self, incident: Incident, worktree: Path) -> str:
         """Mark the checklist item done in worktree UserReport.md if enabled."""

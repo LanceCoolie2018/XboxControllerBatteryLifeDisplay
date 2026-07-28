@@ -91,6 +91,20 @@ def _job_matches_token(state: State, job: Job, token: str) -> bool:
     # fingerprint userreport:UR-foo
     if item_id and f"userreport:{item_id}".lower() == job.fingerprint.lower():
         return True
+    # GitHub issue tokens: "19", "#19", "gh-19", "UR-gh-19"
+    issue_number = meta.get("issue_number") if isinstance(meta, dict) else None
+    if issue_number is not None:
+        num = str(issue_number)
+        candidates = {
+            num,
+            f"#{num}",
+            f"gh-{num}",
+            f"ur-gh-{num}",
+            f"github-{num}",
+            f"github-issue:{num}",
+        }
+        if t in candidates or t.lstrip("#") == num:
+            return True
     return False
 
 
@@ -124,17 +138,21 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
     commits_chrono = list(reversed(commits))
     messages: list[str] = []
     pending = _reviewable_jobs(state)
+    acked_for_github: list[Job] = []
 
     for sha, subject in commits_chrono:
         if RE_ALL.search(subject):
             n = 0
+            batch: list[Job] = []
             for j in list(pending):
                 state.update_job(
                     j.id,
                     status="archived",
                     meta={**(j.meta or {}), "acked_by": sha, "acked_msg": subject},
                 )
+                batch.append(j)
                 n += 1
+            acked_for_github.extend(batch)
             pending = _reviewable_jobs(state)
             messages.append(f"ack all ({n} jobs) via commit {sha[:8]}: {subject}")
             log.info("%s", messages[-1])
@@ -147,6 +165,7 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
         if token.lower() in ("", "all"):
             continue
         matched = 0
+        batch = []
         for j in list(pending):
             if _job_matches_token(state, j, token):
                 state.update_job(
@@ -154,12 +173,26 @@ def process_task_complete_commits(cfg: Config, state: State) -> list[str]:
                     status="archived",
                     meta={**(j.meta or {}), "acked_by": sha, "acked_msg": subject},
                 )
+                batch.append(j)
                 matched += 1
+        acked_for_github.extend(batch)
         pending = _reviewable_jobs(state)
         messages.append(
             f"ack {matched} job(s) for {token!r} via commit {sha[:8]}: {subject}"
         )
         log.info("%s", messages[-1])
+
+    if acked_for_github:
+        try:
+            from maintenance_monkey.sensors.github_issues import (
+                close_issues_for_acked_jobs,
+            )
+
+            for msg in close_issues_for_acked_jobs(cfg, state, acked_for_github):
+                messages.append(msg)
+                log.info("%s", msg)
+        except Exception:
+            log.exception("closing GitHub issues after task complete failed")
 
     newest = commits[0][0]
     cursor_file.write_text(newest + "\n", encoding="utf-8")
