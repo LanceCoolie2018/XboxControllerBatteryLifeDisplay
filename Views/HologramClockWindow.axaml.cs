@@ -146,7 +146,9 @@ public partial class HologramClockWindow : Window
     private void UpdateAnalogHands(DateTime now)
     {
         // Clock angles: 0° = 12 o'clock, clockwise positive (Avalonia RotateTransform).
-        var sec = now.Second + now.Millisecond / 1000.0;
+        // Use TotalSeconds so hand motion is continuous and phase-locked to wall clock
+        // (not free-running TickCount, and not stepped only on the 250 ms digit timer).
+        var sec = now.TimeOfDay.TotalSeconds % 60.0;
         var min = now.Minute + sec / 60.0;
         var hour = (now.Hour % 12) + min / 60.0;
 
@@ -161,6 +163,18 @@ public partial class HologramClockWindow : Window
             rot.Angle = degrees;
         else
             hand.RenderTransform = new RotateTransform(degrees);
+    }
+
+    /// <summary>
+    /// Pendulum angle in degrees for a seconds-beating grandfather swing.
+    /// Full left↔right cycle = 2 s; extremes land on each integer second so the
+    /// bob "ticks" with the second hand and digital seconds.
+    /// </summary>
+    internal static double PendulumAngleDegrees(DateTime now, double amplitude = 14.0)
+    {
+        // cos(π · t): +amp at integer seconds, 0 at half-seconds, −amp next second.
+        var sec = now.TimeOfDay.TotalSeconds;
+        return amplitude * Math.Cos(sec * Math.PI);
     }
 
     private void TickScan()
@@ -181,16 +195,15 @@ public partial class HologramClockWindow : Window
         {
             GrandDigitalText.Opacity = flicker;
 
-            // Drive analog hands from the fast timer so the second hand sweeps
-            // continuously with wall-clock time (not only every 250 ms).
+            // Single wall-clock sample for digits, hands, and pendulum so they
+            // cannot drift relative to each other (UR-gh-28).
             var now = DateTime.Now;
+            var time = now.ToString("h:mm:ss");
+            var ampm = now.ToString("tt");
+            GrandDigitalText.Text = $"{time} {ampm}";
             UpdateAnalogHands(now);
 
-            // Pendulum: one beat per real second (full left↔right cycle = 2 s),
-            // phase-locked to wall clock so the swing matches each second tick.
-            // sin(π · seconds) → 0 at integer seconds, extremes at half-seconds.
-            var sec = now.Second + now.Millisecond / 1000.0;
-            var swing = 14.0 * Math.Sin(sec * Math.PI);
+            var swing = PendulumAngleDegrees(now);
             if (PendulumAssembly.RenderTransform is RotateTransform pendRot)
                 pendRot.Angle = swing;
             else
