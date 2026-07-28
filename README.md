@@ -61,7 +61,7 @@ dotnet run --project BatteryHUD.csproj
 
 ### Laptop / multi-monitor note
 
-The overlay remembers its last position. If you undock or change displays and the window seems missing, it was often **off-screen** — BatteryHUD now snaps back to the primary bottom-right when the saved position is no longer visible. You can also delete `%AppData%\BatteryHUD\settings.json` to reset.
+The overlay remembers its last position. If you undock or change displays and the window seems missing, it was often **off-screen** — BatteryHUD now snaps back to the center of the primary screen when the saved position is no longer visible. You can also delete `%AppData%\BatteryHUD\settings.json` to reset.
 
 ## Publish (single folder)
 

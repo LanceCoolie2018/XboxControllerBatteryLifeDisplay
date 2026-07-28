@@ -204,7 +204,7 @@ public partial class HologramClockWindow : Window
             }
         }
 
-        // Default: top-right of primary (keeps clear of battery HUD bottom-right)
+        // Default: top-right of primary (keeps clear of battery HUD center default)
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         if (screen is null) return;
         var wa = screen.WorkingArea;

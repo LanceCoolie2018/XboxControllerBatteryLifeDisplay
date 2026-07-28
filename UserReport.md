@@ -30,6 +30,7 @@
 - [x] [UR-gh-21] the Pin Button should go under the exit button to not cut off the percentage display — fixed: Pin moved to second row under Exit; top row keeps Switch/Dup/Time/Bug/Exit so % is not squeezed
 - [x] [UR-gh-23] center point on grandfather clock does not line up with clock hands — fixed: analog hand bottom margins equal full hand height so pivot matches face center pin
 - [x] [UR-gh-24] starting position too low and too far right — fixed: place windows using physical pixels (DIP size × screen.Scaling) so high-DPI Windows does not push past the working-area edge
+- [x] [UR-gh-26] starting position for the app should be the center of the screen — fixed: default overlay placement is primary working-area center (saved positions still restored)
 
 ## Notes
 

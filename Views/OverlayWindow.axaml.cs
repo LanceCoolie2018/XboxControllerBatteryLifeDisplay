@@ -123,7 +123,7 @@ public partial class OverlayWindow : Window
             }
         }
 
-        PlaceDefaultBottomRight(wPx, hPx);
+        PlaceDefaultCenter(wPx, hPx);
     }
 
     /// <summary>Window size in physical pixels for placement against WorkingArea.</summary>
@@ -149,18 +149,19 @@ public partial class OverlayWindow : Window
         hPx = Math.Max(1, (int)Math.Ceiling(hDip * scale));
     }
 
-    private void PlaceDefaultBottomRight(int wPx, int hPx)
+    /// <summary>
+    /// First-run / invalid-saved-position default: center of the primary working area (UR-gh-26).
+    /// Sizes are physical pixels so high-DPI placement stays correct (UR-gh-24).
+    /// </summary>
+    private void PlaceDefaultCenter(int wPx, int hPx)
     {
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         if (screen is null) return;
 
         var wa = screen.WorkingArea;
-        var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
-        // EdgePadding is stored in DIPs (same unit as layout); convert for PixelPoint math.
-        var pad = (int)Math.Round(_settings.EdgePadding * scale);
         Position = new PixelPoint(
-            wa.X + wa.Width - wPx - pad,
-            wa.Y + wa.Height - hPx - pad);
+            wa.X + (wa.Width - wPx) / 2,
+            wa.Y + (wa.Height - hPx) / 2);
     }
 
     /// <summary>
