@@ -31,6 +31,7 @@
 - [x] [UR-gh-23] center point on grandfather clock does not line up with clock hands — fixed: analog hand bottom margins equal full hand height so pivot matches face center pin
 - [x] [UR-gh-24] starting position too low and too far right — fixed: place windows using physical pixels (DIP size × screen.Scaling) so high-DPI Windows does not push past the working-area edge
 - [x] [UR-gh-26] starting position for the app should be the center of the screen — fixed: default overlay placement is primary working-area center (saved positions still restored)
+- [x] [UR-gh-28] grandfather clock hand does not swing in sync with the passing of time each second — fixed: pendulum extremes on each integer second (wall-clock phase lock); second hand + digital digits driven from the same 40ms timer so all three stay in lockstep
 
 ## Notes
 
