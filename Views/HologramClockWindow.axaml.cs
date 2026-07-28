@@ -180,8 +180,17 @@ public partial class HologramClockWindow : Window
         else
         {
             GrandDigitalText.Opacity = flicker;
-            // Pendulum swing (~0.55 Hz, small arc)
-            var swing = 14.0 * Math.Sin(t * Math.PI * 1.1);
+
+            // Drive analog hands from the fast timer so the second hand sweeps
+            // continuously with wall-clock time (not only every 250 ms).
+            var now = DateTime.Now;
+            UpdateAnalogHands(now);
+
+            // Pendulum: one beat per real second (full left↔right cycle = 2 s),
+            // phase-locked to wall clock so the swing matches each second tick.
+            // sin(π · seconds) → 0 at integer seconds, extremes at half-seconds.
+            var sec = now.Second + now.Millisecond / 1000.0;
+            var swing = 14.0 * Math.Sin(sec * Math.PI);
             if (PendulumAssembly.RenderTransform is RotateTransform pendRot)
                 pendRot.Angle = swing;
             else
