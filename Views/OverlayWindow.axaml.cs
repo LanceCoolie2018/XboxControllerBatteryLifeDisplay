@@ -105,8 +105,10 @@ public partial class OverlayWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 292 : Width);
-        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 58 : Height);
+        // Position / WorkingArea are physical pixels; Width/Height/Bounds are DIPs.
+        // On Windows with DPI > 100%, subtracting DIP size from pixel area pins the
+        // window too far down-right (UR-gh-24). Always convert via screen.Scaling.
+        GetPhysicalSize(out var wPx, out var hPx);
 
         // Restore saved position only if it still lands on a connected screen.
         // Multi-monitor setups (laptop docked vs undocked) often leave coords
@@ -114,36 +116,62 @@ public partial class OverlayWindow : Window
         if (_initialX is double sx && _initialY is double sy)
         {
             var candidate = new PixelPoint((int)sx, (int)sy);
-            if (IsMostlyOnAnyScreen(candidate, w, h))
+            if (IsMostlyOnAnyScreen(candidate, wPx, hPx))
             {
                 Position = candidate;
                 return;
             }
         }
 
-        PlaceDefaultBottomRight(w, h);
+        PlaceDefaultBottomRight(wPx, hPx);
     }
 
-    private void PlaceDefaultBottomRight(int w, int h)
+    /// <summary>Window size in physical pixels for placement against WorkingArea.</summary>
+    private void GetPhysicalSize(out int wPx, out int hPx)
+    {
+        if (FrameSize is { } fs && fs.Width > 0 && fs.Height > 0)
+        {
+            wPx = Math.Max(1, (int)Math.Ceiling(fs.Width));
+            hPx = Math.Max(1, (int)Math.Ceiling(fs.Height));
+            return;
+        }
+
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        var scale = screen?.Scaling ?? (DesktopScaling > 0 ? DesktopScaling : 1.0);
+        if (scale <= 0) scale = 1.0;
+
+        var wDip = Bounds.Width > 1 ? Bounds.Width
+            : (!double.IsNaN(Width) && Width > 0 ? Width : 300);
+        var hDip = Bounds.Height > 1 ? Bounds.Height
+            : (!double.IsNaN(Height) && Height > 0 ? Height : 68);
+
+        wPx = Math.Max(1, (int)Math.Ceiling(wDip * scale));
+        hPx = Math.Max(1, (int)Math.Ceiling(hDip * scale));
+    }
+
+    private void PlaceDefaultBottomRight(int wPx, int hPx)
     {
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         if (screen is null) return;
 
         var wa = screen.WorkingArea;
-        var pad = _settings.EdgePadding;
+        var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        // EdgePadding is stored in DIPs (same unit as layout); convert for PixelPoint math.
+        var pad = (int)Math.Round(_settings.EdgePadding * scale);
         Position = new PixelPoint(
-            wa.X + wa.Width - w - pad,
-            wa.Y + wa.Height - h - pad);
+            wa.X + wa.Width - wPx - pad,
+            wa.Y + wa.Height - hPx - pad);
     }
 
     /// <summary>
     /// True when at least a decent chunk of the window overlaps some screen working area.
+    /// <paramref name="wPx"/> / <paramref name="hPx"/> must be physical pixels.
     /// </summary>
-    private bool IsMostlyOnAnyScreen(PixelPoint topLeft, int w, int h)
+    private bool IsMostlyOnAnyScreen(PixelPoint topLeft, int wPx, int hPx)
     {
         // Require a useful overlap so a 1px clip on the edge of a disconnected display fails.
         const int minOverlap = 40;
-        var win = new PixelRect(topLeft.X, topLeft.Y, Math.Max(w, minOverlap), Math.Max(h, minOverlap));
+        var win = new PixelRect(topLeft.X, topLeft.Y, Math.Max(wPx, minOverlap), Math.Max(hPx, minOverlap));
 
         foreach (var screen in Screens.All)
         {

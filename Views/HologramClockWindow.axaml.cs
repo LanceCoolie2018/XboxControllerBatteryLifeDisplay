@@ -191,13 +191,13 @@ public partial class HologramClockWindow : Window
 
     private void PlaceWindow()
     {
-        var w = (int)(double.IsNaN(Width) || Width <= 0 ? 280 : Width);
-        var h = (int)(double.IsNaN(Height) || Height <= 0 ? 100 : Height);
+        // Position / WorkingArea are physical pixels; layout sizes are DIPs (UR-gh-24).
+        GetPhysicalSize(out var wPx, out var hPx);
 
         if (_initialX is double sx && _initialY is double sy)
         {
             var candidate = new PixelPoint((int)sx, (int)sy);
-            if (IsMostlyOnAnyScreen(candidate, w, h))
+            if (IsMostlyOnAnyScreen(candidate, wPx, hPx))
             {
                 Position = candidate;
                 return;
@@ -208,15 +208,39 @@ public partial class HologramClockWindow : Window
         var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
         if (screen is null) return;
         var wa = screen.WorkingArea;
+        var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
+        var pad = (int)Math.Round(_edgePadding * scale);
         Position = new PixelPoint(
-            wa.X + wa.Width - w - _edgePadding,
-            wa.Y + _edgePadding);
+            wa.X + wa.Width - wPx - pad,
+            wa.Y + pad);
     }
 
-    private bool IsMostlyOnAnyScreen(PixelPoint topLeft, int w, int h)
+    private void GetPhysicalSize(out int wPx, out int hPx)
+    {
+        if (FrameSize is { } fs && fs.Width > 0 && fs.Height > 0)
+        {
+            wPx = Math.Max(1, (int)Math.Ceiling(fs.Width));
+            hPx = Math.Max(1, (int)Math.Ceiling(fs.Height));
+            return;
+        }
+
+        var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+        var scale = screen?.Scaling ?? (DesktopScaling > 0 ? DesktopScaling : 1.0);
+        if (scale <= 0) scale = 1.0;
+
+        var wDip = Bounds.Width > 1 ? Bounds.Width
+            : (!double.IsNaN(Width) && Width > 0 ? Width : 280);
+        var hDip = Bounds.Height > 1 ? Bounds.Height
+            : (!double.IsNaN(Height) && Height > 0 ? Height : 100);
+
+        wPx = Math.Max(1, (int)Math.Ceiling(wDip * scale));
+        hPx = Math.Max(1, (int)Math.Ceiling(hDip * scale));
+    }
+
+    private bool IsMostlyOnAnyScreen(PixelPoint topLeft, int wPx, int hPx)
     {
         const int minOverlap = 40;
-        var win = new PixelRect(topLeft.X, topLeft.Y, Math.Max(w, minOverlap), Math.Max(h, minOverlap));
+        var win = new PixelRect(topLeft.X, topLeft.Y, Math.Max(wPx, minOverlap), Math.Max(hPx, minOverlap));
 
         foreach (var screen in Screens.All)
         {

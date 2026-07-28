@@ -29,6 +29,7 @@
 - [x] [UR-gh-20] needs a option for a holo grandfather clock so that people can personalize their space — fixed: Style toggle on hologram clock (Digital / Grandfather analog+pendulum); choice saved in settings
 - [x] [UR-gh-21] the Pin Button should go under the exit button to not cut off the percentage display — fixed: Pin moved to second row under Exit; top row keeps Switch/Dup/Time/Bug/Exit so % is not squeezed
 - [x] [UR-gh-23] center point on grandfather clock does not line up with clock hands — fixed: analog hand bottom margins equal full hand height so pivot matches face center pin
+- [x] [UR-gh-24] starting position too low and too far right — fixed: place windows using physical pixels (DIP size × screen.Scaling) so high-DPI Windows does not push past the working-area edge
 
 ## Notes
 
